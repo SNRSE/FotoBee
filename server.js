@@ -13,7 +13,19 @@
  * gallery never sees half-written files. Videos are optionally remuxed with
  * ffmpeg after the upload (adds the duration/cues Chrome's MediaRecorder omits).
  *
+ * Portable build: scripts/build-exe.js bundles this file plus ./public into a
+ * single executable (Node SEA). When running as that executable the frontend is
+ * served from the embedded assets (files next to the executable override them)
+ * and captures are stored next to the executable.
+ *
+ * Command line:
+ *  --open           open the booth in the default browser after start
+ *  --kiosk          open Chrome/Edge in kiosk mode (fullscreen, camera pre-approved)
+ *  --port N         listen on port N (same as PORT)
+ *  --captures DIR   store photos and videos in DIR (same as CAPTURE_DIR)
+ *
  * Environment:
+ *  FOTOBEE_OPEN   "1" = like --open, "kiosk" = like --kiosk
  *  PORT           port to listen on (default 3000, 0 = random free port)
  *  HOST           interface to bind (default 0.0.0.0)
  *  CAPTURE_DIR    where to store captures (default ./captures)
@@ -31,13 +43,25 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { pipeline } = require('stream');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
+const sea = detectSea(); // node:sea module when running as a portable single executable, else null
+const APP_DIR = sea ? path.dirname(process.execPath) : __dirname;
 const PKG = readPackage();
-const PORT = process.env.PORT === '0' ? 0 : Number(process.env.PORT) || 3000;
+const ARGS = parseArgs(process.argv.slice(2));
+const PORT = ARGS.port != null ? ARGS.port : process.env.PORT === '0' ? 0 : Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const PUBLIC_DIR = path.join(__dirname, 'public');
-const CAPTURE_DIR = path.resolve(process.env.CAPTURE_DIR || path.join(__dirname, 'captures'));
+const PUBLIC_DIR = path.join(APP_DIR, 'public');
+const CAPTURE_DIR = path.resolve(ARGS.captures || process.env.CAPTURE_DIR || path.join(APP_DIR, 'captures'));
+const OPEN_MODE = ARGS.kiosk
+  ? 'kiosk'
+  : ARGS.open
+    ? 'open'
+    : process.env.FOTOBEE_OPEN === 'kiosk'
+      ? 'kiosk'
+      : process.env.FOTOBEE_OPEN === '1'
+        ? 'open'
+        : null;
 const MAX_BODY_BYTES = (Number(process.env.MAX_UPLOAD_MB) || 512) * 1024 * 1024; // plenty for a 15 s video
 const POSTPROCESS_ENABLED = process.env.POSTPROCESS !== '0';
 const FFMPEG_CANDIDATE = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -89,12 +113,63 @@ let shuttingDown = false;
 /* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
 
+function detectSea() {
+  try {
+    const mod = require('node:sea');
+    return mod.isSea() ? mod : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function readPackage() {
   try {
+    if (sea) return JSON.parse(sea.getAsset('package.json', 'utf8'));
     return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
   } catch (err) {
     return { version: '0.0.0' };
   }
+}
+
+function usage() {
+  return [
+    `FotoBee ${PKG.version} – wedding photo booth server`,
+    '',
+    'Usage: fotobee [--open | --kiosk] [--port N] [--captures DIR]',
+    '',
+    '  --open           open the booth in the default browser after start',
+    '  --kiosk          open Chrome/Edge in kiosk mode (fullscreen, camera pre-approved)',
+    '  --port N         listen on port N (default 3000, 0 = random free port)',
+    '  --captures DIR   store photos and videos in DIR (default ./captures)',
+    '  --help           show this help',
+    '',
+    'Environment: PORT, HOST, CAPTURE_DIR, FOTOBEE_OPEN (1|kiosk), SSL_KEY, SSL_CERT,',
+    '             FFMPEG_PATH, POSTPROCESS (0 = off), MAX_UPLOAD_MB',
+  ].join('\n');
+}
+
+function parseArgs(argv) {
+  const out = { open: false, kiosk: false, port: null, captures: null, help: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const [flag, inlineValue] = arg.includes('=') ? arg.split(/=(.*)/s) : [arg, undefined];
+    const value = () => (inlineValue !== undefined ? inlineValue : argv[(i += 1)]);
+    if (flag === '--open') out.open = true;
+    else if (flag === '--kiosk') out.kiosk = true;
+    else if (flag === '--help' || flag === '-h') out.help = true;
+    else if (flag === '--port') out.port = Number(value());
+    else if (flag === '--captures') out.captures = value();
+    else console.warn(`Ignoring unknown option ${arg} (try --help)`);
+  }
+  if (out.port != null && (!Number.isInteger(out.port) || out.port < 0 || out.port > 65535)) {
+    console.error('--port expects a number between 0 and 65535');
+    process.exit(2);
+  }
+  if (out.help) {
+    console.log(usage());
+    process.exit(0);
+  }
+  return out;
 }
 
 function pad(n) {
@@ -377,6 +452,10 @@ function serveFile(req, res, rootDir, urlPath) {
   }
   fs.stat(resolved, (err, stat) => {
     if (err || !stat.isFile()) {
+      if (sea && rootDir === PUBLIC_DIR) {
+        serveEmbedded(req, res, resolved); // portable build: fall back to the built-in frontend
+        return;
+      }
       sendJson(res, 404, { ok: false, error: 'Not found' });
       return;
     }
@@ -417,6 +496,116 @@ function serveFile(req, res, rootDir, urlPath) {
   });
 }
 
+/** Serve a frontend file embedded in the portable executable (see scripts/build-exe.js). */
+function serveEmbedded(req, res, resolved) {
+  const key = `public/${path.relative(PUBLIC_DIR, resolved).split(path.sep).join('/')}`;
+  let data;
+  try {
+    data = Buffer.from(sea.getAsset(key));
+  } catch (err) {
+    sendJson(res, 404, { ok: false, error: 'Not found' });
+    return;
+  }
+  res.writeHead(200, {
+    'Content-Type': MIME[path.extname(resolved).toLowerCase()] || 'application/octet-stream',
+    'Content-Length': data.length,
+    'Cache-Control': 'no-cache',
+  });
+  if (req.method === 'HEAD') res.end();
+  else res.end(data);
+}
+
+/* ------------------------------------------------------------------ */
+/* Browser launcher (--open / --kiosk)                                 */
+/* ------------------------------------------------------------------ */
+
+function whichSync(name) {
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    const candidate = path.join(dir, name);
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch (err) {
+      /* keep looking */
+    }
+  }
+  return null;
+}
+
+/** Find an installed Chromium-based browser (Chrome, Edge, Chromium, Brave) for kiosk mode. */
+function findChromiumBrowser() {
+  let candidates;
+  if (process.platform === 'win32') {
+    const pf = process.env.ProgramFiles || 'C:\\Program Files';
+    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const local = process.env.LOCALAPPDATA || '';
+    candidates = [
+      path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(local, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(pf, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
+    ];
+  } else if (process.platform === 'darwin') {
+    candidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    ];
+  } else {
+    candidates = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser']
+      .map(whichSync)
+      .filter(Boolean);
+  }
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
+}
+
+function openBrowser(mode, url) {
+  const browser = mode === 'kiosk' ? findChromiumBrowser() : null;
+  if (browser) {
+    // A private profile makes --kiosk work even if the browser is already open and
+    // skips the "restore pages?" bubble; the media flag pre-approves the camera.
+    const args = [
+      '--kiosk',
+      `--user-data-dir=${path.join(APP_DIR, 'browser-profile')}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--use-fake-ui-for-media-stream',
+      '--autoplay-policy=no-user-gesture-required',
+      '--noerrdialogs',
+      '--disable-session-crashed-bubble',
+      '--disable-infobars',
+      '--overscroll-history-navigation=0',
+    ];
+    if (/msedge/i.test(browser)) args.push('--edge-kiosk-type=fullscreen');
+    args.push(url);
+    try {
+      spawn(browser, args, { detached: true, stdio: 'ignore' }).unref();
+      console.log(`Kiosk: opened ${browser}`);
+      return;
+    } catch (err) {
+      console.log(`Kiosk: could not start ${browser} (${err.message})`);
+    }
+  } else if (mode === 'kiosk') {
+    console.log('Kiosk: no Chrome/Edge found – opening the default browser instead (press F for fullscreen)');
+  }
+  const launcher =
+    process.platform === 'win32'
+      ? ['cmd', ['/c', 'start', '', url]]
+      : process.platform === 'darwin'
+        ? ['open', [url]]
+        : ['xdg-open', [url]];
+  try {
+    const child = spawn(launcher[0], launcher[1], { detached: true, stdio: 'ignore' });
+    child.on('error', () => console.log(`Could not open a browser – open ${url} yourself`));
+    child.unref();
+  } catch (err) {
+    console.log(`Could not open a browser (${err.message}) – open ${url} yourself`);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Request routing                                                     */
 /* ------------------------------------------------------------------ */
@@ -428,6 +617,7 @@ function healthPayload() {
     https: tlsEnabled,
     ffmpeg: Boolean(ffmpeg),
     postprocess: Boolean(ffmpeg) && POSTPROCESS_ENABLED,
+    portable: Boolean(sea),
     version: PKG.version,
     time: new Date().toISOString(),
   };
@@ -544,7 +734,9 @@ function logStartup() {
       ? 'HTTPS: on – tablets on the same Wi-Fi must accept the self-signed certificate once'
       : 'HTTPS: off – needed for the camera on other devices; run "npm run cert" and start with SSL_KEY/SSL_CERT'
   );
-  console.log('Tip: open the URL on the kiosk device in fullscreen / kiosk mode. Ctrl+C stops the server.');
+  if (sea) console.log('Portable build: files next to the executable (e.g. public/js/config.js) override the built-in ones');
+  if (OPEN_MODE) openBrowser(OPEN_MODE, `${scheme}://localhost:${port}/`);
+  else console.log('Tip: start with --kiosk to open the booth fullscreen in Chrome/Edge. Ctrl+C stops the server.');
 }
 
 function onServerError(err) {

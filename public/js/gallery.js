@@ -148,11 +148,15 @@
     return list.filter((f) => f && typeof f.name === 'string' && typeof f.url === 'string');
   }
 
+  const LOAD_TIMEOUT_MS = 10000; // a hung request must not freeze polling forever
+
   async function load() {
     if (state.loading) return;
     state.loading = true;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS) : null;
     try {
-      const res = await fetch('/api/gallery', { cache: 'no-store' });
+      const res = await fetch('/api/gallery', { cache: 'no-store', signal: controller ? controller.signal : undefined });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (!data || !data.ok) throw new Error('Unerwartete Antwort');
@@ -163,8 +167,15 @@
       console.warn('[galerie] Laden fehlgeschlagen:', err && err.message ? err.message : err);
       setError(true);
     } finally {
+      clearTimeout(timeout);
       state.loading = false;
     }
+  }
+
+  /** Keep keyboard focus inside the open overlay (lightbox / slideshow). */
+  function setPageInert(on) {
+    const page = document.getElementById('page');
+    if (page) page.inert = on;
   }
 
   function setError(on) {
@@ -305,6 +316,7 @@
     if (itemIndex(key) < 0) return;
     lightbox.open = true;
     el.lightbox.hidden = false;
+    setPageInert(true);
     lockScroll();
     showLightboxItem(key);
     el.lbClose.focus({ preventScroll: true });
@@ -315,6 +327,7 @@
     lightbox.open = false;
     lightbox.key = null;
     el.lightbox.hidden = true;
+    setPageInert(false);
     stopLightboxVideo();
     el.lbImg.removeAttribute('src');
     lockScroll();
@@ -383,6 +396,8 @@
     show.loopName = null;
     el.slideshow.hidden = false;
     el.slidePaused.hidden = true;
+    el.btnSlideshow.blur(); // Space must pause the show, not re-trigger the button
+    setPageInert(true);
     el.slideshow.classList.remove('paused', 'idle');
     el.slideHint.classList.remove('fade');
     el.slideCouple.textContent = coupleText();
@@ -404,7 +419,13 @@
     clearTimeout(show.cursorTimer);
     clearTimeout(show.hintTimer);
     el.slideshow.hidden = true;
+    setPageInert(false);
     el.slideshow.classList.remove('paused', 'idle');
+    const page = document.getElementById('page');
+    if (page) {
+      page.setAttribute('tabindex', '-1');
+      page.focus({ preventScroll: true });
+    }
     el.slides.forEach((layer) => {
       layer.classList.remove('show');
       layer.style.zIndex = '';

@@ -109,6 +109,42 @@ meant for the booth's own network.
 
 Test: `npm run test:gallery`.
 
+## Portable Windows build (single EXE)
+
+```bash
+npm run build:exe            # -> dist/FotoBee-<version>-win-x64/FotoBee.exe and a .zip of the folder
+```
+
+`scripts/build-exe.js` uses Node's built-in *Single Executable Application*
+feature: it embeds `server.js`, `package.json` and everything under `public/`
+(fonts included) into a copy of the official Node.js binary for the target
+platform. Nothing has to be installed on the booth computer – copy the folder
+(or unzip the archive) and double-click:
+
+| File | What it does |
+| --- | --- |
+| `FotoBee-Kiosk.cmd` | starts the server and opens Chrome/Edge fullscreen in kiosk mode with the camera pre-approved |
+| `FotoBee-Browser.cmd` | starts the server and opens the booth in the default browser |
+| `FotoBee.exe --help` | all options: `--kiosk`, `--open`, `--port N`, `--captures DIR` |
+
+Photos and videos are written to `captures/` next to the executable, the
+gallery is at `http://localhost:3000/gallery.html`. To customise names, date or
+countdowns without rebuilding, put a `public/js/config.js` next to the
+executable – any file in a `public` folder beside the EXE overrides the built-in
+one. Windows shows a SmartScreen warning once because the EXE is not
+code-signed ("More info" → "Run anyway").
+
+Build details and other targets:
+
+- The build needs Node ≥ 20.12, network access (once) for the Node.js download
+  and for `postject` (fetched via `npx`, build-time only), and `unzip`/`tar`.
+  Downloads are cached in `dist/.cache`.
+- `node scripts/build-exe.js --platform host` builds for the machine you are
+  on (used by `npm run test:build`, which builds and smoke-tests the binary);
+  `--platform linux-arm64` targets a Raspberry Pi 4/5, `darwin-arm64` an Apple
+  Silicon Mac (build on a Mac so the binary can be re-signed).
+- The same server flags work without the EXE: `node server.js --kiosk`.
+
 ## Server details
 
 - **Atomic saves** – uploads are written to `<file>.part` and renamed into
@@ -146,6 +182,7 @@ Tests: `npm run test:server` (Node's built-in test runner, about 3 s).
 ```
 server.js            Node.js server: static files, uploads, gallery API, optional HTTPS + ffmpeg
 scripts/make-cert.sh Self-signed certificate for HTTPS on the local network
+scripts/build-exe.js Portable single-file build (Windows EXE, Linux, macOS)
 public/index.html    Screens: start, capture, photo review, video review
 public/css/          Styling + bundled fonts (macramé SVG pattern lives in index.html)
 public/js/config.js  Booth configuration
@@ -157,6 +194,7 @@ public/gallery.html  Hosts' gallery + slideshow (js/gallery.js, css/gallery.css)
 test/e2e.js          Playwright smoke test with a fake camera
 test/gallery.test.js Playwright test for the gallery page
 test/server.test.js  Server tests (node --test)
+test/build.test.js   Builds the portable binary for this machine and smoke-tests it
 ```
 
 ## Testing
@@ -167,6 +205,7 @@ npm test                # server tests + booth flows + gallery, about 3 minutes
 npm run test:e2e        # booth flows only (fake camera, screenshots in test/screenshots/)
 npm run test:server     # Node test runner, about 3 s
 npm run test:gallery    # gallery page
+npm run test:build      # portable build (needs network once for postject)
 ```
 
 ## Roadmap ideas

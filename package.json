@@ -11,7 +11,10 @@
     "test:e2e": "node test/e2e.js",
     "test:server": "node --test test/server.test.js",
     "test:gallery": "node test/gallery.test.js",
-    "cert": "bash scripts/make-cert.sh"
+    "cert": "bash scripts/make-cert.sh",
+    "build:exe": "node scripts/build-exe.js",
+    "build:exe:host": "node scripts/build-exe.js --platform host",
+    "test:build": "node --test test/build.test.js"
   },
   "engines": {
     "node": ">=18"

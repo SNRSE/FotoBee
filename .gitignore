@@ -5,3 +5,4 @@ test/screenshots/
 .DS_Store
 .claude/
 certs/
+dist/
