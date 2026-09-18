@@ -8,11 +8,12 @@ macramé wall hanging. The guest-facing UI is German.
 ## Features
 
 - **Photo mode** – tapping *Foto* starts a 5 second countdown right away
-  (time to get in position), takes the first picture, then a 3 second countdown
-  and the second picture; flash + shutter sound; a review screen lets guests
-  keep both, one or none.
-- **Video mode** – 15 second message (countdown, progress bar, stop early),
-  review with playback, retake as often as you like, save or discard.
+  (time to get in position), then four pictures follow with a quick 2‑1
+  countdown between them; flash + shutter sound; the review screen shows all
+  four and lets guests keep all, some or none.
+- **Video mode** – tapping *Video* starts a 5 second countdown, then records a
+  15 second message (progress bar, stop early); review with playback, retake as
+  often as you like, save or discard.
 - **Back to start** after every session, idle timeout returns to the start
   screen automatically.
 - **Wedding styling** – natural tones, serif typography, macramé décor, big
@@ -44,9 +45,9 @@ google-chrome --kiosk --autoplay-policy=no-user-gesture-required http://localhos
 Saved files:
 
 ```
-captures/photos/2027-06-12_20-14-05_1.jpg   # <session>_<shot>.jpg
-captures/photos/2027-06-12_20-14-05_2.jpg
-captures/videos/2027-06-12_20-16-40.mp4     # .webm on browsers without MP4 recording
+captures/photos/2026-10-10_20-14-05_1.jpg   # <session>_<picture>.jpg  (1–4 per session)
+captures/photos/2026-10-10_20-14-05_2.jpg
+captures/videos/2026-10-10_20-16-40.mp4     # .webm on browsers without MP4 recording
 ```
 
 > The camera only works in a *secure context*: `http://localhost` is fine on the
@@ -62,13 +63,14 @@ Edit `public/js/config.js`:
 | `coupleNames` / `eventDate` | `'Lena & Lami'` / `'10.10.2026'` | Shown under the title (empty = hidden) |
 | `photoAutoStart` | `true` | Tapping *Foto* starts the countdown immediately |
 | `photoFirstCountdownSeconds` | `5` | Countdown before the first picture |
-| `countdownSeconds` | `3` | Countdown before the second picture / the video |
-| `photoCount` | `2` | Shots per photo session |
-| `pauseBetweenShotsMs` | `1600` | "One more…" pause |
+| `countdownSeconds` | `2` | Quick countdown before every further picture |
+| `photoCount` | `4` | Pictures per photo session (1–4) |
+| `pauseBetweenShotsMs` | `0` | Optional "Noch eins…" pause between pictures |
 | `mirrorPreview` | `true` | Mirror the live feed |
 | `mirrorSavedPhotos` | `false` | Save mirrored photos (text would be reversed) |
+| `videoAutoStart` | `true` | Tapping *Video* starts the countdown immediately |
+| `videoFirstCountdownSeconds` | `5` | Countdown before recording starts |
 | `videoSeconds` | `15` | Maximum video length |
-| `videoCountdown` | `true` | 3‑2‑1 before recording |
 | `allowStopEarly` | `true` | Stop button while recording |
 | `sound` | `true` | Countdown beeps and shutter click |
 | `idleTimeoutMs` | `90000` | Return to start screen after inactivity |
