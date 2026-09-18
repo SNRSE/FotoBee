@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>FotoBox</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF7F0'/%3E%3Ccircle cx='32' cy='34' r='13' fill='none' stroke='%23C9A24E' stroke-width='4'/%3E%3Crect x='10' y='18' width='44' height='32' rx='7' fill='none' stroke='%235C4433' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app" data-screen="home">
+
+  <!-- Macramé wall hanging (decorative) -->
+  <div class="macrame" aria-hidden="true">
+    <svg class="macrame-svg" viewBox="0 0 1600 220" preserveAspectRatio="xMidYMin slice" focusable="false">
+      <defs>
+        <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#A8846A"/>
+          <stop offset="0.45" stop-color="#84634A"/>
+          <stop offset="1" stop-color="#5C4433"/>
+        </linearGradient>
+        <pattern id="knots" x="0" y="0" width="80" height="220" patternUnits="userSpaceOnUse">
+          <!-- lark's head loops over the dowel -->
+          <g fill="none" stroke="#D9C8AC" stroke-width="3" stroke-linecap="round">
+            <path d="M4 15 q6 -11 12 0"/>
+            <path d="M24 15 q6 -11 12 0"/>
+            <path d="M44 15 q6 -11 12 0"/>
+            <path d="M64 15 q6 -11 12 0"/>
+          </g>
+          <!-- cords and diamond lattice -->
+          <g fill="none" stroke="#DCCBB0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 22 v22 l10 12 l-10 12 l-10 12 l10 12 l10 12"/>
+            <path d="M30 22 v22 l-10 12 l10 12 l10 12 l-10 12 l-10 12"/>
+            <path d="M50 22 v22 l10 12 l-10 12 l-10 12 l10 12 l10 12"/>
+            <path d="M70 22 v22 l-10 12 l10 12 l10 12 l-10 12 l-10 12"/>
+            <path d="M10 104 l-10 12"/>
+            <path d="M70 104 l10 12"/>
+          </g>
+          <!-- knots -->
+          <g fill="#EFE3CF" stroke="#CDB894" stroke-width="1.5">
+            <rect x="15" y="52" width="10" height="7" rx="3"/>
+            <rect x="55" y="52" width="10" height="7" rx="3"/>
+            <rect x="35" y="76" width="10" height="7" rx="3"/>
+            <rect x="-5" y="76" width="10" height="7" rx="3"/>
+            <rect x="75" y="76" width="10" height="7" rx="3"/>
+            <rect x="15" y="100" width="10" height="7" rx="3"/>
+            <rect x="55" y="100" width="10" height="7" rx="3"/>
+            <rect x="35" y="124" width="10" height="7" rx="3"/>
+            <rect x="-5" y="124" width="10" height="7" rx="3"/>
+            <rect x="75" y="124" width="10" height="7" rx="3"/>
+          </g>
+          <!-- fringe -->
+          <g fill="none" stroke="#DCCBB0" stroke-width="2.4" stroke-linecap="round">
+            <path d="M33 130 q-3 30 -1 55 q1 15 -3 32"/>
+            <path d="M37 130 q2 28 0 52 q-1 20 2 40"/>
+            <path d="M41 130 q-2 30 1 56 q1 16 -2 30"/>
+            <path d="M45 130 q3 26 0 54 q-2 18 3 38"/>
+            <path d="M49 130 q-2 32 2 58 q1 14 -3 30"/>
+            <path d="M73 130 q-3 30 -1 55 q1 15 -3 32"/>
+            <path d="M77 130 q2 28 0 52 q-1 20 2 40"/>
+            <path d="M1 130 q-2 30 1 56 q1 16 -2 30"/>
+            <path d="M5 130 q3 26 0 54 q-2 18 3 38"/>
+            <path d="M9 130 q-2 32 2 58 q1 14 -3 30"/>
+          </g>
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="1600" height="220" fill="url(#knots)"/>
+      <rect x="0" y="9" width="1600" height="14" rx="7" fill="url(#wood)"/>
+      <rect x="0" y="11" width="1600" height="3" rx="1.5" fill="#C9A98A" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <!-- ============ START SCREEN ============ -->
+  <section class="screen screen-home" id="screen-home">
+    <header class="hero">
+      <p class="eyebrow" data-i18n="home.eyebrow">Welcome to our</p>
+      <h1 class="title" data-i18n="home.title">FotoBox</h1>
+      <p class="couple" id="couple-line"></p>
+      <div class="knot-divider" aria-hidden="true">
+        <span class="knot-line"></span>
+        <svg viewBox="0 0 48 24" width="48" height="24" focusable="false">
+          <path d="M2 12 C 10 2, 18 2, 24 12 S 38 22, 46 12" fill="none" stroke="#C9A24E" stroke-width="2" stroke-linecap="round"/>
+          <path d="M2 12 C 10 22, 18 22, 24 12 S 38 2, 46 12" fill="none" stroke="#C9A24E" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="24" cy="12" r="3.2" fill="#C9A24E"/>
+        </svg>
+        <span class="knot-line"></span>
+      </div>
+      <p class="subtitle" data-i18n="home.subtitle">Capture a moment for the newlyweds</p>
+    </header>
+
+    <div class="options">
+      <button class="option" id="btn-photo" type="button">
+        <span class="option-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" focusable="false">
+            <rect x="6" y="18" width="52" height="36" rx="8" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M22 18 l4 -7 h12 l4 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+            <circle cx="32" cy="36" r="10.5" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <circle cx="32" cy="36" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <circle cx="49" cy="26" r="2.2" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="option-text">
+          <span class="option-label" data-i18n="home.photo">Photo</span>
+          <span class="option-hint" data-i18n="home.photoHint">Two pictures with a 3-2-1 countdown</span>
+        </span>
+      </button>
+
+      <button class="option" id="btn-video" type="button">
+        <span class="option-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" focusable="false">
+            <rect x="6" y="18" width="38" height="30" rx="7" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M44 28 l14 -7 v22 l-14 -7 z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+            <circle cx="18" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2.2"/>
+            <circle cx="32" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2.2"/>
+            <path d="M22 38 l10 -5 l-10 -5 z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="option-text">
+          <span class="option-label" data-i18n="home.video">Video</span>
+          <span class="option-hint" data-i18n="home.videoHint">A 15 second message for the couple</span>
+        </span>
+      </button>
+    </div>
+
+    <footer class="home-footer">
+      <button class="link-btn" id="btn-lang" type="button" data-i18n="lang.switch">Deutsch</button>
+      <span class="footer-dot" aria-hidden="true">·</span>
+      <button class="link-btn" id="btn-fullscreen" type="button" data-i18n="fullscreen">Fullscreen</button>
+    </footer>
+  </section>
+
+  <!-- ============ CAPTURE SCREEN (photo + video) ============ -->
+  <section class="screen screen-capture" id="screen-capture">
+    <div class="stage" id="stage">
+      <video id="preview" autoplay playsinline muted></video>
+      <img id="freeze" class="freeze" alt="" hidden>
+      <div class="frame-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="stage-top">
+        <span class="shot-counter" id="shot-counter"></span>
+        <div class="rec-indicator" id="rec" hidden>
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span data-i18n="video.recording">Recording</span>
+          <span class="rec-time" id="rec-time">0:15</span>
+        </div>
+      </div>
+      <div class="countdown" id="countdown" hidden>
+        <svg class="countdown-ring" viewBox="0 0 120 120" focusable="false" aria-hidden="true">
+          <circle cx="60" cy="60" r="54" class="ring-track"/>
+          <circle cx="60" cy="60" r="54" class="ring-progress" id="ring-progress"/>
+        </svg>
+        <span class="countdown-number" id="countdown-number"></span>
+      </div>
+      <div class="stage-message" id="stage-message" hidden></div>
+      <div class="rec-progress" id="rec-progress" hidden><i id="rec-progress-bar"></i></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="controls stage-controls" id="capture-controls">
+      <button class="btn btn-ghost btn-light" id="btn-back" type="button" data-i18n="common.back">Back</button>
+      <button class="btn btn-primary btn-xl" id="btn-start" type="button">Start</button>
+      <button class="btn btn-stop btn-xl" id="btn-stop" type="button" hidden>
+        <span class="stop-square" aria-hidden="true"></span><span data-i18n="video.stop">Stop</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ PHOTO REVIEW ============ -->
+  <section class="screen screen-review" id="screen-photo-review">
+    <header class="review-header">
+      <h2 data-i18n="review.title">Which ones would you like to keep?</h2>
+      <p class="hint" data-i18n="review.hint">Tap a photo to select or deselect it</p>
+    </header>
+    <div class="photos" id="review-photos"></div>
+    <div class="controls">
+      <button class="btn btn-ghost" id="btn-photo-retake" type="button" data-i18n="review.retake">Retake</button>
+      <button class="btn btn-ghost" id="btn-photo-none" type="button" data-i18n="review.saveNone">Save none</button>
+      <button class="btn btn-primary btn-xl" id="btn-photo-save" type="button">Save both</button>
+    </div>
+  </section>
+
+  <!-- ============ VIDEO REVIEW ============ -->
+  <section class="screen screen-review" id="screen-video-review">
+    <header class="review-header">
+      <h2 data-i18n="video.reviewTitle">How was that?</h2>
+      <p class="hint" data-i18n="video.reviewHint">Watch it back, then save or retake</p>
+    </header>
+    <div class="video-frame">
+      <video id="playback" controls playsinline loop></video>
+    </div>
+    <div class="controls">
+      <button class="btn btn-ghost" id="btn-video-discard" type="button" data-i18n="video.discard">Discard</button>
+      <button class="btn btn-ghost" id="btn-video-retake" type="button" data-i18n="video.retake">Retake</button>
+      <button class="btn btn-primary btn-xl" id="btn-video-save" type="button" data-i18n="video.save">Save video</button>
+    </div>
+  </section>
+
+  <!-- ============ OVERLAY (saving / thanks / errors) ============ -->
+  <div class="overlay" id="overlay" hidden>
+    <div class="overlay-card">
+      <div class="overlay-icon" id="overlay-icon" aria-hidden="true"></div>
+      <p class="overlay-text" id="overlay-text"></p>
+      <button class="btn btn-primary" id="overlay-btn" type="button" hidden>OK</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
