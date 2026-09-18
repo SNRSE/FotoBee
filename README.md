@@ -79,7 +79,8 @@ Every key can be overridden per session with URL parameters, e.g.
 `http://localhost:3000/?videoSeconds=20&photoFirstCountdownSeconds=7`.
 
 Server options via environment variables: `PORT` (3000), `HOST` (0.0.0.0),
-`CAPTURE_DIR` (`./captures`).
+`CAPTURE_DIR` (`./captures`), `SSL_KEY`/`SSL_CERT` (HTTPS), `FFMPEG_PATH`,
+`POSTPROCESS` (`0` disables ffmpeg), `MAX_UPLOAD_MB` (512).
 
 ## Galerie & Diashow (for the hosts)
 
@@ -108,10 +109,43 @@ meant for the booth's own network.
 
 Test: `npm run test:gallery`.
 
+## Server details
+
+- **Atomic saves** – uploads are written to `<file>.part` and renamed into
+  place, so a crash never leaves a half photo behind. The gallery never lists
+  (and the server never serves) `*.part` / `*.tmp.*` files.
+- **HTTPS for tablets** – the camera only works in a secure context, so a
+  tablet on the same Wi‑Fi needs HTTPS:
+
+  ```bash
+  npm run cert      # creates certs/dev-key.pem + dev-cert.pem (self-signed, SAN: localhost, hostname, all LAN IPs)
+  SSL_KEY=certs/dev-key.pem SSL_CERT=certs/dev-cert.pem npm start
+  ```
+
+  Existing certificates are kept (`--force` regenerates, `--out DIR` changes
+  the folder). Open `https://<ip>:3000` on the tablet (the server prints every
+  LAN URL at startup) and accept the certificate warning once.
+- **ffmpeg post-processing** – if `ffmpeg` is on the PATH (or `FFMPEG_PATH`
+  points to it), every uploaded video is remuxed right after the upload: WebM
+  gets the duration/cues that Chrome's MediaRecorder omits (fixes seeking and
+  the "∞" duration), MP4 gets a fast-start header. Guests never wait for it and
+  a failed remux keeps the original file. `POSTPROCESS=0` disables it.
+- **Startup log** prints the booth URL, the LAN URLs, the gallery URL, the
+  capture folder and the ffmpeg/HTTPS status. `Ctrl+C` shuts down gracefully
+  (waits for uploads and pending remuxes); a port in use gives a clear hint.
+- **Security** – `X-Content-Type-Options: nosniff`, `X-Frame-Options`,
+  `Referrer-Policy`, strict path checks (encoded `..`, backslashes, NUL bytes),
+  upload size limit `MAX_UPLOAD_MB` (default 512). There is no login: run the
+  booth on its own network.
+- **Range requests** on `/captures/*` so gallery videos can be seeked.
+
+Tests: `npm run test:server` (Node's built-in test runner, about 3 s).
+
 ## Project layout
 
 ```
-server.js            Node.js server: static files + /api/photos, /api/videos, /api/gallery
+server.js            Node.js server: static files, uploads, gallery API, optional HTTPS + ffmpeg
+scripts/make-cert.sh Self-signed certificate for HTTPS on the local network
 public/index.html    Screens: start, capture, photo review, video review
 public/css/          Styling + bundled fonts (macramé SVG pattern lives in index.html)
 public/js/config.js  Booth configuration
@@ -122,17 +156,19 @@ public/js/app.js     Application flow / state machine
 public/gallery.html  Hosts' gallery + slideshow (js/gallery.js, css/gallery.css)
 test/e2e.js          Playwright smoke test with a fake camera
 test/gallery.test.js Playwright test for the gallery page
+test/server.test.js  Server tests (node --test)
 ```
 
 ## Testing
 
 ```bash
-npm i -D playwright   # once (Chromium is downloaded automatically)
-npm test              # runs both flows headless, screenshots in test/screenshots/
+npm i -D playwright     # once (Chromium is downloaded automatically)
+npm test                # server tests + booth flows + gallery, about 3 minutes
+npm run test:e2e        # booth flows only (fake camera, screenshots in test/screenshots/)
+npm run test:server     # Node test runner, about 3 s
+npm run test:gallery    # gallery page
 ```
 
 ## Roadmap ideas
 
 - Photo strip composite (both photos + names/date) for printing
-- Optional HTTPS for tablets on the same network
-- ffmpeg post-processing (fix WebM duration metadata, convert to MP4)

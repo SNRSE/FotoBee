@@ -4,3 +4,4 @@ test/screenshots/
 *.log
 .DS_Store
 .claude/
+certs/

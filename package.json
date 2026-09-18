@@ -7,8 +7,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/e2e.js",
-    "test:gallery": "node test/gallery.test.js"
+    "test": "node --test test/server.test.js && node test/e2e.js && node test/gallery.test.js",
+    "test:e2e": "node test/e2e.js",
+    "test:server": "node --test test/server.test.js",
+    "test:gallery": "node test/gallery.test.js",
+    "cert": "bash scripts/make-cert.sh"
   },
   "engines": {
     "node": ">=18"
