@@ -1,13 +1,14 @@
 {
   "name": "fotobee",
   "version": "0.1.0",
-  "description": "Wedding photo booth web app – photo (3-2-1, two shots) and 15s video modes",
+  "description": "Wedding photo booth web app \u2013 photo (3-2-1, two shots) and 15s video modes",
   "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/e2e.js"
+    "test": "node test/e2e.js",
+    "test:gallery": "node test/gallery.test.js"
   },
   "engines": {
     "node": ">=18"

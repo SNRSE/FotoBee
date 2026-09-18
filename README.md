@@ -81,6 +81,33 @@ Every key can be overridden per session with URL parameters, e.g.
 Server options via environment variables: `PORT` (3000), `HOST` (0.0.0.0),
 `CAPTURE_DIR` (`./captures`).
 
+## Galerie & Diashow (for the hosts)
+
+`http://localhost:3000/gallery.html` is an unlisted page for the couple – it is
+not linked from the guest UI. It lists every saved photo (newest first, print
+strips `*_strip.jpg` are marked as "Fotostreifen") and video, refreshes itself
+every 20 s (paused while the tab is hidden) and opens files in a lightbox with
+prev/next (buttons or arrow keys), the capture time and a **Herunterladen**
+link. Names and date come from `coupleNames` / `eventDate` in `config.js`.
+
+**Diashow / TV mode:** the *Diashow* button (or `?slideshow=1`) shows the
+photos fullscreen with a slow Ken‑Burns drift and crossfade, 7 s per photo,
+newest first, looping. Photos that guests save while the show runs are queued
+and shown next, so they appear on the TV within about 30 s. Keys: `Esc`/click
+exits, `Space` pauses, `←`/`→` navigate. For a TV in the party room:
+
+```bash
+google-chrome --kiosk "http://<booth-computer>:3000/gallery.html?slideshow=1"
+```
+
+URL parameters: `?slideshow=1` starts the slideshow immediately, `?interval=10`
+seconds per photo (default 7), `?poll=5` polling interval in seconds (default
+20). Browsers only allow real fullscreen after a click, so with `?slideshow=1`
+start the browser itself in kiosk/fullscreen mode. The page has no login – it is
+meant for the booth's own network.
+
+Test: `npm run test:gallery`.
+
 ## Project layout
 
 ```
@@ -92,7 +119,9 @@ public/js/i18n.js    UI texts (German)
 public/js/camera.js  getUserMedia, still capture, MediaRecorder
 public/js/storage.js Upload to backend or download fallback
 public/js/app.js     Application flow / state machine
+public/gallery.html  Hosts' gallery + slideshow (js/gallery.js, css/gallery.css)
 test/e2e.js          Playwright smoke test with a fake camera
+test/gallery.test.js Playwright test for the gallery page
 ```
 
 ## Testing
@@ -105,6 +134,5 @@ npm test              # runs both flows headless, screenshots in test/screenshot
 ## Roadmap ideas
 
 - Photo strip composite (both photos + names/date) for printing
-- Gallery page for the hosts
 - Optional HTTPS for tablets on the same network
 - ffmpeg post-processing (fix WebM duration metadata, convert to MP4)

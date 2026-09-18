@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Galerie – FotoBox</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF7F0'/%3E%3Ccircle cx='32' cy='34' r='13' fill='none' stroke='%23C9A24E' stroke-width='4'/%3E%3Crect x='10' y='18' width='44' height='32' rx='7' fill='none' stroke='%235C4433' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/gallery.css">
+</head>
+<body>
+
+<!-- Macramé wall hanging (decorative) -->
+<div class="macrame" aria-hidden="true">
+  <svg class="macrame-svg" viewBox="0 0 1600 220" preserveAspectRatio="xMidYMin slice" focusable="false">
+    <defs>
+      <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#A8846A"/>
+        <stop offset="0.45" stop-color="#84634A"/>
+        <stop offset="1" stop-color="#5C4433"/>
+      </linearGradient>
+      <pattern id="knots" x="0" y="0" width="80" height="220" patternUnits="userSpaceOnUse">
+        <!-- lark's head loops over the dowel -->
+        <g fill="none" stroke="#D9C8AC" stroke-width="3" stroke-linecap="round">
+          <path d="M4 15 q6 -11 12 0"/>
+          <path d="M24 15 q6 -11 12 0"/>
+          <path d="M44 15 q6 -11 12 0"/>
+          <path d="M64 15 q6 -11 12 0"/>
+        </g>
+        <!-- cords and diamond lattice -->
+        <g fill="none" stroke="#DCCBB0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 22 v22 l10 12 l-10 12 l-10 12 l10 12 l10 12"/>
+          <path d="M30 22 v22 l-10 12 l10 12 l10 12 l-10 12 l-10 12"/>
+          <path d="M50 22 v22 l10 12 l-10 12 l-10 12 l10 12 l10 12"/>
+          <path d="M70 22 v22 l-10 12 l10 12 l10 12 l-10 12 l-10 12"/>
+          <path d="M10 104 l-10 12"/>
+          <path d="M70 104 l10 12"/>
+        </g>
+        <!-- knots -->
+        <g fill="#EFE3CF" stroke="#CDB894" stroke-width="1.5">
+          <rect x="15" y="52" width="10" height="7" rx="3"/>
+          <rect x="55" y="52" width="10" height="7" rx="3"/>
+          <rect x="35" y="76" width="10" height="7" rx="3"/>
+          <rect x="-5" y="76" width="10" height="7" rx="3"/>
+          <rect x="75" y="76" width="10" height="7" rx="3"/>
+          <rect x="15" y="100" width="10" height="7" rx="3"/>
+          <rect x="55" y="100" width="10" height="7" rx="3"/>
+          <rect x="35" y="124" width="10" height="7" rx="3"/>
+          <rect x="-5" y="124" width="10" height="7" rx="3"/>
+          <rect x="75" y="124" width="10" height="7" rx="3"/>
+        </g>
+        <!-- fringe -->
+        <g fill="none" stroke="#DCCBB0" stroke-width="2.4" stroke-linecap="round">
+          <path d="M33 130 q-3 30 -1 55 q1 15 -3 32"/>
+          <path d="M37 130 q2 28 0 52 q-1 20 2 40"/>
+          <path d="M41 130 q-2 30 1 56 q1 16 -2 30"/>
+          <path d="M45 130 q3 26 0 54 q-2 18 3 38"/>
+          <path d="M49 130 q-2 32 2 58 q1 14 -3 30"/>
+          <path d="M73 130 q-3 30 -1 55 q1 15 -3 32"/>
+          <path d="M77 130 q2 28 0 52 q-1 20 2 40"/>
+          <path d="M1 130 q-2 30 1 56 q1 16 -2 30"/>
+          <path d="M5 130 q3 26 0 54 q-2 18 3 38"/>
+          <path d="M9 130 q-2 32 2 58 q1 14 -3 30"/>
+        </g>
+      </pattern>
+    </defs>
+    <rect x="0" y="0" width="1600" height="220" fill="url(#knots)"/>
+    <rect x="0" y="9" width="1600" height="14" rx="7" fill="url(#wood)"/>
+    <rect x="0" y="11" width="1600" height="3" rx="1.5" fill="#C9A98A" opacity="0.5"/>
+  </svg>
+</div>
+
+<main class="page" id="page">
+  <header class="hero">
+    <p class="eyebrow">Unsere FotoBox</p>
+    <h1 class="title">Galerie</h1>
+    <p class="couple" id="couple-line"></p>
+    <div class="knot-divider" aria-hidden="true">
+      <span class="knot-line"></span>
+      <svg viewBox="0 0 48 24" width="48" height="24" focusable="false">
+        <path d="M2 12 C 10 2, 18 2, 24 12 S 38 22, 46 12" fill="none" stroke="#C9A24E" stroke-width="2" stroke-linecap="round"/>
+        <path d="M2 12 C 10 22, 18 22, 24 12 S 38 2, 46 12" fill="none" stroke="#C9A24E" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="24" cy="12" r="3.2" fill="#C9A24E"/>
+      </svg>
+      <span class="knot-line"></span>
+    </div>
+    <p class="counts" id="counts">Wird geladen…</p>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" id="btn-slideshow" type="button">
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 5.5 h16 a1.5 1.5 0 0 1 1.5 1.5 v9 a1.5 1.5 0 0 1 -1.5 1.5 h-16 a1.5 1.5 0 0 1 -1.5 -1.5 v-9 a1.5 1.5 0 0 1 1.5 -1.5 z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 9 l5 3 l-5 3 z" fill="currentColor"/><path d="M8 20.5 h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Diashow
+    </button>
+    <button class="btn btn-ghost" id="btn-refresh" type="button">Aktualisieren</button>
+    <span class="status" id="status" aria-live="polite"></span>
+  </div>
+
+  <p class="notice notice-error" id="error" role="alert" hidden></p>
+
+  <div class="empty" id="empty" hidden>
+    <span class="empty-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" focusable="false"><path d="M32 54 C 12 40, 6 30, 8 20 C 10 11, 22 8, 32 20 C 42 8, 54 11, 56 20 C 58 30, 52 40, 32 54 Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>
+    </span>
+    <p class="empty-text">Noch keine Bilder – die ersten Gäste sind unterwegs!</p>
+    <p class="empty-sub">Die Galerie aktualisiert sich von selbst</p>
+  </div>
+
+  <section class="section" id="section-photos" hidden>
+    <h2 class="section-title">Fotos <span class="section-count" id="photo-count"></span></h2>
+    <div class="grid" id="photo-grid"></div>
+  </section>
+
+  <section class="section" id="section-videos" hidden>
+    <h2 class="section-title">Videos <span class="section-count" id="video-count"></span></h2>
+    <div class="grid" id="video-grid"></div>
+  </section>
+
+  <footer class="page-footer">FotoBox · Galerie für das Brautpaar</footer>
+</main>
+
+<!-- ============ LIGHTBOX ============ -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Großansicht" hidden>
+  <button class="lb-btn lb-close" id="lb-close" type="button" aria-label="Schließen">
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M6 6 l12 12 M18 6 l-12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+  <button class="lb-btn lb-prev" id="lb-prev" type="button" aria-label="Vorheriges">
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M14.5 5 l-7 7 l7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <figure class="lb-figure">
+    <div class="lb-frame">
+      <img id="lb-img" alt="">
+      <video id="lb-video" controls playsinline hidden></video>
+    </div>
+    <figcaption class="lb-caption">
+      <span class="lb-time" id="lb-time"></span>
+      <span class="lb-name" id="lb-name"></span>
+      <a class="btn btn-light" id="lb-download" href="#" download>Herunterladen</a>
+    </figcaption>
+  </figure>
+  <button class="lb-btn lb-next" id="lb-next" type="button" aria-label="Nächstes">
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M9.5 5 l7 7 l-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<!-- ============ SLIDESHOW (TV mode) ============ -->
+<div class="slideshow" id="slideshow" hidden>
+  <div class="slide" id="slide-a"><img class="slide-bg" alt=""><img class="slide-img" alt=""></div>
+  <div class="slide" id="slide-b"><img class="slide-bg" alt=""><img class="slide-img" alt=""></div>
+  <div class="slide-empty" id="slide-empty" hidden>
+    <span>Noch keine Fotos – die Diashow startet, sobald das erste Bild da ist.</span>
+    <small>Wir schauen alle paar Sekunden nach</small>
+  </div>
+  <div class="slide-caption" aria-hidden="true">
+    <span class="slide-couple" id="slide-couple"></span>
+    <span class="slide-counter" id="slide-counter"></span>
+  </div>
+  <div class="slide-pill" id="slide-paused" hidden>Pause</div>
+  <p class="slide-hint" id="slide-hint">Esc beendet · Leertaste pausiert · ← → blättern</p>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/gallery.js"></script>
+</body>
+</html>
