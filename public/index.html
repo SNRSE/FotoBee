@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#FBF7F0">
   <title>FotoBox</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF7F0'/%3E%3Ccircle cx='32' cy='34' r='13' fill='none' stroke='%23C9A24E' stroke-width='4'/%3E%3Crect x='10' y='18' width='44' height='32' rx='7' fill='none' stroke='%235C4433' stroke-width='4'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500&display=swap">
+  <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -77,7 +75,7 @@
   <!-- ============ START SCREEN ============ -->
   <section class="screen screen-home" id="screen-home">
     <header class="hero">
-      <p class="eyebrow" data-i18n="home.eyebrow">Welcome to our</p>
+      <p class="eyebrow" data-i18n="home.eyebrow">Willkommen in unserer</p>
       <h1 class="title" data-i18n="home.title">FotoBox</h1>
       <p class="couple" id="couple-line"></p>
       <div class="knot-divider" aria-hidden="true">
@@ -89,7 +87,7 @@
         </svg>
         <span class="knot-line"></span>
       </div>
-      <p class="subtitle" data-i18n="home.subtitle">Capture a moment for the newlyweds</p>
+      <p class="subtitle" data-i18n="home.subtitle">Haltet einen Moment für das Brautpaar fest</p>
     </header>
 
     <div class="options">
@@ -104,8 +102,8 @@
           </svg>
         </span>
         <span class="option-text">
-          <span class="option-label" data-i18n="home.photo">Photo</span>
-          <span class="option-hint" data-i18n="home.photoHint">Two pictures with a 3-2-1 countdown</span>
+          <span class="option-label" data-i18n="home.photo">Foto</span>
+          <span class="option-hint" data-i18n="home.photoHint">Zwei Bilder – der Countdown startet sofort</span>
         </span>
       </button>
 
@@ -121,15 +119,13 @@
         </span>
         <span class="option-text">
           <span class="option-label" data-i18n="home.video">Video</span>
-          <span class="option-hint" data-i18n="home.videoHint">A 15 second message for the couple</span>
+          <span class="option-hint" data-i18n="home.videoHint">Eine 15-Sekunden-Botschaft ans Brautpaar</span>
         </span>
       </button>
     </div>
 
     <footer class="home-footer">
-      <button class="link-btn" id="btn-lang" type="button" data-i18n="lang.switch">Deutsch</button>
-      <span class="footer-dot" aria-hidden="true">·</span>
-      <button class="link-btn" id="btn-fullscreen" type="button" data-i18n="fullscreen">Fullscreen</button>
+      <button class="link-btn" id="btn-fullscreen" type="button" data-i18n="fullscreen">Vollbild</button>
     </footer>
   </section>
 
@@ -143,7 +139,7 @@
         <span class="shot-counter" id="shot-counter"></span>
         <div class="rec-indicator" id="rec" hidden>
           <span class="rec-dot" aria-hidden="true"></span>
-          <span data-i18n="video.recording">Recording</span>
+          <span data-i18n="video.recording">Aufnahme</span>
           <span class="rec-time" id="rec-time">0:15</span>
         </div>
       </div>
@@ -159,10 +155,10 @@
       <div class="flash" id="flash"></div>
     </div>
     <div class="controls stage-controls" id="capture-controls">
-      <button class="btn btn-ghost btn-light" id="btn-back" type="button" data-i18n="common.back">Back</button>
+      <button class="btn btn-ghost btn-light" id="btn-back" type="button" data-i18n="common.back">Zurück</button>
       <button class="btn btn-primary btn-xl" id="btn-start" type="button">Start</button>
       <button class="btn btn-stop btn-xl" id="btn-stop" type="button" hidden>
-        <span class="stop-square" aria-hidden="true"></span><span data-i18n="video.stop">Stop</span>
+        <span class="stop-square" aria-hidden="true"></span><span data-i18n="video.stop">Stopp</span>
       </button>
     </div>
   </section>
@@ -170,30 +166,30 @@
   <!-- ============ PHOTO REVIEW ============ -->
   <section class="screen screen-review" id="screen-photo-review">
     <header class="review-header">
-      <h2 data-i18n="review.title">Which ones would you like to keep?</h2>
-      <p class="hint" data-i18n="review.hint">Tap a photo to select or deselect it</p>
+      <h2 data-i18n="review.title">Welche möchtet ihr behalten?</h2>
+      <p class="hint" data-i18n="review.hint">Tippt auf ein Foto, um es aus- oder abzuwählen</p>
     </header>
     <div class="photos" id="review-photos"></div>
     <div class="controls">
-      <button class="btn btn-ghost" id="btn-photo-retake" type="button" data-i18n="review.retake">Retake</button>
-      <button class="btn btn-ghost" id="btn-photo-none" type="button" data-i18n="review.saveNone">Save none</button>
-      <button class="btn btn-primary btn-xl" id="btn-photo-save" type="button">Save both</button>
+      <button class="btn btn-ghost" id="btn-photo-retake" type="button" data-i18n="review.retake">Nochmal</button>
+      <button class="btn btn-ghost" id="btn-photo-none" type="button" data-i18n="review.saveNone">Keines speichern</button>
+      <button class="btn btn-primary btn-xl" id="btn-photo-save" type="button">Beide speichern</button>
     </div>
   </section>
 
   <!-- ============ VIDEO REVIEW ============ -->
   <section class="screen screen-review" id="screen-video-review">
     <header class="review-header">
-      <h2 data-i18n="video.reviewTitle">How was that?</h2>
-      <p class="hint" data-i18n="video.reviewHint">Watch it back, then save or retake</p>
+      <h2 data-i18n="video.reviewTitle">Wie war's?</h2>
+      <p class="hint" data-i18n="video.reviewHint">Anschauen, dann speichern oder nochmal</p>
     </header>
     <div class="video-frame">
       <video id="playback" controls playsinline loop></video>
     </div>
     <div class="controls">
-      <button class="btn btn-ghost" id="btn-video-discard" type="button" data-i18n="video.discard">Discard</button>
-      <button class="btn btn-ghost" id="btn-video-retake" type="button" data-i18n="video.retake">Retake</button>
-      <button class="btn btn-primary btn-xl" id="btn-video-save" type="button" data-i18n="video.save">Save video</button>
+      <button class="btn btn-ghost" id="btn-video-discard" type="button" data-i18n="video.discard">Verwerfen</button>
+      <button class="btn btn-ghost" id="btn-video-retake" type="button" data-i18n="video.retake">Nochmal</button>
+      <button class="btn btn-primary btn-xl" id="btn-video-save" type="button" data-i18n="video.save">Video speichern</button>
     </div>
   </section>
 

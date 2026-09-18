@@ -1,22 +1,24 @@
 # FotoBee – Wedding FotoBox
 
-A browser-based photo booth for a wedding: guests choose **Photo** or **Video**,
-the booth runs a 3‑2‑1 countdown over the live camera feed, and captures are
-saved on the booth computer. The look is warm and natural – ivory, gold, brown
-and a macramé wall hanging.
+A browser-based photo booth for a wedding: guests choose **Foto** or **Video**,
+the booth runs a countdown over the live camera feed, and captures are saved on
+the booth computer. The look is warm and natural – ivory, gold, brown and a
+macramé wall hanging. The guest-facing UI is German.
 
 ## Features
 
-- **Photo mode** – two shots, each with a 3‑2‑1 countdown over the live feed,
-  flash + shutter sound, then a review screen where guests pick which photos to
-  keep: both, one or none.
+- **Photo mode** – tapping *Foto* starts a 5 second countdown right away
+  (time to get in position), takes the first picture, then a 3 second countdown
+  and the second picture; flash + shutter sound; a review screen lets guests
+  keep both, one or none.
 - **Video mode** – 15 second message (countdown, progress bar, stop early),
   review with playback, retake as often as you like, save or discard.
 - **Back to start** after every session, idle timeout returns to the start
   screen automatically.
 - **Wedding styling** – natural tones, serif typography, macramé décor, big
   touch-friendly buttons, works in landscape and portrait.
-- **English / German** UI, switchable on the start screen.
+- **German UI**, all texts in one file (`public/js/i18n.js`).
+- **Bundled fonts** (Cormorant Garamond, Jost) – works fully offline.
 - **Physical button support** – `Enter`/`Space` triggers the primary action,
   `Esc` goes back, `P`/`V` pick a mode on the start screen, `F` toggles
   fullscreen.
@@ -57,9 +59,10 @@ Edit `public/js/config.js`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `lang` | `'en'` | Default language (`'en'` or `'de'`); resets after each guest |
-| `coupleNames` / `eventDate` | `'Anna & Max'` / `'12.06.2027'` | Shown under the title (empty = hidden) |
-| `countdownSeconds` | `3` | Countdown before each shot / recording |
+| `coupleNames` / `eventDate` | `'Lena & Lami'` / `'10.10.2026'` | Shown under the title (empty = hidden) |
+| `photoAutoStart` | `true` | Tapping *Foto* starts the countdown immediately |
+| `photoFirstCountdownSeconds` | `5` | Countdown before the first picture |
+| `countdownSeconds` | `3` | Countdown before the second picture / the video |
 | `photoCount` | `2` | Shots per photo session |
 | `pauseBetweenShotsMs` | `1600` | "One more…" pause |
 | `mirrorPreview` | `true` | Mirror the live feed |
@@ -71,7 +74,7 @@ Edit `public/js/config.js`:
 | `idleTimeoutMs` | `90000` | Return to start screen after inactivity |
 
 Every key can be overridden per session with URL parameters, e.g.
-`http://localhost:3000/?lang=de&videoSeconds=20`.
+`http://localhost:3000/?videoSeconds=20&photoFirstCountdownSeconds=7`.
 
 Server options via environment variables: `PORT` (3000), `HOST` (0.0.0.0),
 `CAPTURE_DIR` (`./captures`).
@@ -81,9 +84,9 @@ Server options via environment variables: `PORT` (3000), `HOST` (0.0.0.0),
 ```
 server.js            Node.js server: static files + /api/photos, /api/videos, /api/gallery
 public/index.html    Screens: start, capture, photo review, video review
-public/css/          Styling (wedding palette, macramé SVG pattern lives in index.html)
+public/css/          Styling + bundled fonts (macramé SVG pattern lives in index.html)
 public/js/config.js  Booth configuration
-public/js/i18n.js    Translations
+public/js/i18n.js    UI texts (German)
 public/js/camera.js  getUserMedia, still capture, MediaRecorder
 public/js/storage.js Upload to backend or download fallback
 public/js/app.js     Application flow / state machine

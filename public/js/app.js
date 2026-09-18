@@ -10,7 +10,7 @@
   const $ = (id) => document.getElementById(id);
 
   /* ------------------------------------------------------------------ */
-  /* Config overrides via URL (?lang=de&videoSeconds=10)                 */
+  /* Config overrides via URL (?videoSeconds=10&coupleNames=...)          */
   /* ------------------------------------------------------------------ */
   (function applyUrlOverrides() {
     const params = new URLSearchParams(location.search);
@@ -36,7 +36,6 @@
     coupleLine: $('couple-line'),
     btnPhoto: $('btn-photo'),
     btnVideo: $('btn-video'),
-    btnLang: $('btn-lang'),
     btnFullscreen: $('btn-fullscreen'),
     preview: $('preview'),
     freeze: $('freeze'),
@@ -294,7 +293,6 @@
     Camera.stop();
     el.preview.srcObject = null;
     mode = null;
-    I18N.setLang(cfg.lang); // each guest starts with the default language
     setScreen('home');
   }
 
@@ -344,6 +342,10 @@
       goHome();
       return;
     }
+    if (mode === 'photo' && cfg.photoAutoStart) {
+      runPhotoSequence();
+      return;
+    }
     showCaptureControls();
   }
 
@@ -383,8 +385,12 @@
           showMessage(t('photo.oneMore'));
           await wait(cfg.pauseBetweenShotsMs, token);
           hideMessage();
+        } else {
+          showMessage(t('photo.getReady'));
         }
-        await runCountdown(cfg.countdownSeconds, token);
+        const seconds = i === 0 ? cfg.photoFirstCountdownSeconds : cfg.countdownSeconds;
+        await runCountdown(Math.max(1, Math.round(seconds)), token);
+        hideMessage();
         fireFlash();
         shutterSound();
         const blob = await Camera.capturePhoto(el.preview, {
@@ -481,7 +487,8 @@
     flowToken += 1;
     cleanupShots();
     setScreen('capture');
-    showCaptureControls();
+    if (cfg.photoAutoStart) runPhotoSequence();
+    else showCaptureControls();
   }
 
   /* ------------------------------------------------------------------ */
@@ -629,12 +636,6 @@
     if (currentScreen() === 'photo-review') updateSaveButton();
   }
 
-  function toggleLanguage() {
-    const langs = I18N.available();
-    const next = langs[(langs.indexOf(I18N.getLang()) + 1) % langs.length];
-    I18N.setLang(next);
-  }
-
   function toggleFullscreen() {
     const doc = document;
     if (!doc.fullscreenElement) {
@@ -652,7 +653,6 @@
   /* ------------------------------------------------------------------ */
   el.btnPhoto.addEventListener('click', () => enterCapture('photo'));
   el.btnVideo.addEventListener('click', () => enterCapture('video'));
-  el.btnLang.addEventListener('click', toggleLanguage);
   el.btnFullscreen.addEventListener('click', toggleFullscreen);
   el.btnBack.addEventListener('click', goHome);
   el.btnStart.addEventListener('click', () => {
@@ -715,7 +715,7 @@
   /* ------------------------------------------------------------------ */
   /* Init                                                                */
   /* ------------------------------------------------------------------ */
-  I18N.setLang(cfg.lang);
+  I18N.setLang('de');
   renderTexts();
   el.preview.classList.toggle('mirrored', Boolean(cfg.mirrorPreview));
   Saver.detectBackend().then((available) => {

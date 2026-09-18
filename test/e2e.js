@@ -102,9 +102,10 @@ async function run() {
 
     /* ---------------- Home ---------------- */
     console.log('\nHome screen');
-    await page.goto(`${base}/?countdownSeconds=2&pauseBetweenShotsMs=600&freezeFrameMs=300&videoSeconds=3&thanksDurationMs=700`);
+    await page.goto(`${base}/?photoFirstCountdownSeconds=2&countdownSeconds=1&pauseBetweenShotsMs=600&freezeFrameMs=300&videoSeconds=3&thanksDurationMs=700`);
     await page.waitForSelector('#screen-home', { state: 'visible' });
-    assert((await page.textContent('#btn-photo .option-label')).trim() === 'Photo', 'photo option is visible');
+    assert((await page.textContent('#btn-photo .option-label')).trim() === 'Foto', 'photo option is visible');
+    assert((await page.textContent('#couple-line')).includes('Lena & Lami'), 'couple line shows the configured names');
     assert((await page.textContent('#btn-video .option-label')).trim() === 'Video', 'video option is visible');
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(SHOTS, '01-home.png') });
@@ -113,28 +114,30 @@ async function run() {
     console.log('\nPhoto flow');
     await page.click('#btn-photo');
     await page.waitForSelector('#screen-capture', { state: 'visible' });
-    await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
+    await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
     assert(await page.isVisible('#preview'), 'live preview is shown');
-    await page.screenshot({ path: path.join(SHOTS, '02-photo-ready.png') });
-
-    await page.click('#btn-start');
-    await page.waitForSelector('#countdown:not([hidden])');
+    assert(await page.isHidden('#btn-start'), 'no start button – countdown begins right away');
     const firstNumber = await page.textContent('#countdown-number');
-    assert(firstNumber === '2', `countdown starts at configured value (got ${firstNumber})`);
+    assert(firstNumber === '2', `first countdown starts at photoFirstCountdownSeconds (got ${firstNumber})`);
     await page.waitForTimeout(250);
-    await page.screenshot({ path: path.join(SHOTS, '03-photo-countdown.png') });
+    await page.screenshot({ path: path.join(SHOTS, '02-photo-countdown.png') });
+    await page.waitForFunction(() => document.getElementById('shot-counter').textContent.startsWith('Foto 2'), null, { timeout: 15000 });
+    await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
+    const secondNumber = await page.textContent('#countdown-number');
+    assert(secondNumber === '1', `second countdown uses countdownSeconds (got ${secondNumber})`);
+    await page.screenshot({ path: path.join(SHOTS, '03-photo-second-countdown.png') });
 
     await page.waitForSelector('#screen-photo-review', { state: 'visible', timeout: 20000 });
     const cards = await page.$$('#review-photos .photo-card');
     assert(cards.length === 2, `two photos on the review screen (got ${cards.length})`);
     const naturalWidths = await page.$$eval('#review-photos img', (imgs) => imgs.map((img) => img.naturalWidth));
     assert(naturalWidths.every((w) => w > 0), `captured images decode (${naturalWidths.join('x')})`);
-    assert((await page.textContent('#btn-photo-save')).trim() === 'Save both', 'save button reads "Save both"');
+    assert((await page.textContent('#btn-photo-save')).trim() === 'Beide speichern', 'save button reads "Beide speichern"');
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(SHOTS, '04-photo-review.png') });
 
     await cards[1].click();
-    assert((await page.textContent('#btn-photo-save')).trim() === 'Save this one', 'deselecting one photo updates the label');
+    assert((await page.textContent('#btn-photo-save')).trim() === 'Dieses speichern', 'deselecting one photo updates the label');
     await page.screenshot({ path: path.join(SHOTS, '05-photo-review-one-selected.png') });
     await cards[0].click();
     assert(await page.isDisabled('#btn-photo-save'), 'save button disabled when nothing is selected');
@@ -153,8 +156,6 @@ async function run() {
     /* ---------------- Photo: save none ---------------- */
     console.log('\nPhoto flow – save none');
     await page.click('#btn-photo');
-    await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
-    await page.click('#btn-start');
     await page.waitForSelector('#screen-photo-review', { state: 'visible', timeout: 20000 });
     await page.click('#btn-photo-none');
     await page.waitForSelector('#screen-home', { state: 'visible', timeout: 10000 });
@@ -164,7 +165,7 @@ async function run() {
     console.log('\nVideo flow');
     await page.click('#btn-video');
     await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
-    assert((await page.textContent('#btn-start')).trim() === 'Record', 'record button shown');
+    assert((await page.textContent('#btn-start')).trim() === 'Aufnehmen', 'record button shown');
     await page.click('#btn-start');
     await page.waitForSelector('#rec:not([hidden])', { timeout: 10000 });
     await page.waitForTimeout(700);
@@ -194,17 +195,14 @@ async function run() {
       assert(size > 1000, `video file has content (${size} bytes)`);
     }
 
-    /* ---------------- Keyboard + language ---------------- */
-    console.log('\nKeyboard & language');
-    await page.click('#btn-lang');
-    assert((await page.textContent('#btn-photo .option-label')).trim() === 'Foto', 'language toggles to German');
-    await page.screenshot({ path: path.join(SHOTS, '09-home-de.png') });
-    await page.keyboard.press('p');
+    /* ---------------- Keyboard ---------------- */
+    console.log('\nKeyboard');
+    await page.keyboard.press('v');
     await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
-    assert((await page.textContent('#btn-start')).trim() === "Los geht's", 'German start label');
+    assert((await page.textContent('#btn-start')).trim() === 'Aufnehmen', 'V opens video mode with the German record label');
     await page.keyboard.press('Escape');
     await page.waitForSelector('#screen-home', { state: 'visible' });
-    assert((await page.textContent('#btn-photo .option-label')).trim() === 'Photo', 'language resets to default after a session');
+    assert(await page.evaluate(() => document.documentElement.lang === 'de'), 'document language is German');
 
     /* ---------------- Portrait layout ---------------- */
     console.log('\nPortrait layout');

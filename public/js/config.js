@@ -2,19 +2,18 @@
  * FotoBee configuration.
  * Edit the values below to personalise the booth. Any key can also be
  * overridden for a single session via URL parameters, e.g.
- *   http://localhost:3000/?lang=de&videoSeconds=10&coupleNames=Anna%20%26%20Max
+ *   http://localhost:3000/?videoSeconds=10&coupleNames=Lena%20%26%20Lami
  */
 window.FOTOBOX_CONFIG = {
-  // 'en' or 'de'
-  lang: 'en',
-
   // Shown on the start screen under the title. Leave empty to hide.
-  coupleNames: 'Anna & Max',
-  eventDate: '12.06.2027',
+  coupleNames: 'Lena & Lami',
+  eventDate: '10.10.2026',
 
   // Photo mode
-  countdownSeconds: 3,       // 3 - 2 - 1
-  photoCount: 2,             // number of shots per session
+  photoAutoStart: true,          // tapping "Foto" starts the countdown right away (no extra button)
+  photoFirstCountdownSeconds: 5, // countdown before the first picture (time to get in position)
+  countdownSeconds: 3,           // countdown before every further picture / before the video
+  photoCount: 2,                 // number of shots per session
   pauseBetweenShotsMs: 1600, // "one more…" pause between the shots
   photoQuality: 0.92,        // JPEG quality 0..1
   mirrorPreview: true,       // mirror the live feed like a mirror
