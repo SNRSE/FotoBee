@@ -14,6 +14,10 @@ macramé wall hanging. The guest-facing UI is German.
 - **Video mode** – tapping *Video* starts a 5 second countdown, then records a
   15 second message (progress bar, stop early); review with playback, retake as
   often as you like, save or discard.
+- **Print strip** – the selected pictures are also composed into a print-ready
+  JPEG: a classic 2x6" photo strip for 3–4 pictures, a 4x6" postcard for 1–2,
+  with the couple's names and the date (`<session>_strip.jpg`, 300 dpi).
+- **Gallery & slideshow** page for the hosts, see below.
 - **Back to start** after every session, idle timeout returns to the start
   screen automatically.
 - **Wedding styling** – natural tones, serif typography, macramé décor, big
@@ -25,7 +29,10 @@ macramé wall hanging. The guest-facing UI is German.
   fullscreen.
 - **Node.js backend** (no dependencies) that stores captures in `captures/`.
   Without the backend (e.g. opened as a static page) files are downloaded via
-  the browser instead.
+  the browser instead. If the server becomes unreachable while saving, the
+  files are downloaded in the booth browser and the thanks overlay says
+  "Server nicht erreichbar – auf diesem Gerät heruntergeladen"; the next guest's
+  save checks the server again.
 
 ## Quick start
 
@@ -45,9 +52,10 @@ google-chrome --kiosk --autoplay-policy=no-user-gesture-required http://localhos
 Saved files:
 
 ```
-captures/photos/2026-10-10_20-14-05_1.jpg   # <session>_<picture>.jpg  (1–4 per session)
+captures/photos/2026-10-10_20-14-05_1.jpg      # <session>_<picture>.jpg  (1–4 per session)
 captures/photos/2026-10-10_20-14-05_2.jpg
-captures/videos/2026-10-10_20-16-40.mp4     # .webm on browsers without MP4 recording
+captures/photos/2026-10-10_20-14-05_strip.jpg  # print strip (2x6") or postcard (4x6")
+captures/videos/2026-10-10_20-16-40.mp4        # .webm on browsers without MP4 recording
 ```
 
 > The camera only works in a *secure context*: `http://localhost` is fine on the
@@ -72,6 +80,11 @@ Edit `public/js/config.js`:
 | `videoFirstCountdownSeconds` | `5` | Countdown before recording starts |
 | `videoSeconds` | `15` | Maximum video length |
 | `allowStopEarly` | `true` | Stop button while recording |
+| `saveStrip` | `true` | Also save the print strip / postcard |
+| `stripDpi` | `300` | Resolution of the strip (2x6" or 4x6") |
+| `photoCaption` | `false` | Stamp "Namen · Datum" bottom-right on every saved photo |
+| `preferredCamera` | `''` | Part of the camera label (e.g. `Logitech`) or a deviceId; `Camera.listCameras()` in the browser console lists them |
+| `previewFit` | `'auto'` | `'auto'` letterboxes when camera and screen orientation differ, `'cover'` always fills, `'contain'` always letterboxes |
 | `sound` | `true` | Countdown beeps and shutter click |
 | `idleTimeoutMs` | `90000` | Return to start screen after inactivity |
 
@@ -190,6 +203,7 @@ public/js/i18n.js    UI texts (German)
 public/js/camera.js  getUserMedia, still capture, MediaRecorder
 public/js/storage.js Upload to backend or download fallback
 public/js/app.js     Application flow / state machine
+public/js/strip.js   Print strip / postcard composite (canvas)
 public/gallery.html  Hosts' gallery + slideshow (js/gallery.js, css/gallery.css)
 test/e2e.js          Playwright smoke test with a fake camera
 test/gallery.test.js Playwright test for the gallery page
@@ -210,4 +224,4 @@ npm run test:build      # portable build (needs network once for postject)
 
 ## Roadmap ideas
 
-- Photo strip composite (both photos + names/date) for printing
+- Trigger a real camera (Panasonic GH5 / BGH1) and strobes via a capture driver

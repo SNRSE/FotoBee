@@ -450,6 +450,12 @@ button {
   background: var(--stage-bg);
 }
 
+/* Letterbox instead of cropping when camera and stage orientation differ (config.previewFit) */
+#preview.fit-contain,
+.freeze.fit-contain {
+  object-fit: contain;
+}
+
 #preview.mirrored {
   transform: scaleX(-1);
 }

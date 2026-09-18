@@ -37,6 +37,7 @@
     btnPhoto: $('btn-photo'),
     btnVideo: $('btn-video'),
     btnFullscreen: $('btn-fullscreen'),
+    stage: $('stage'),
     preview: $('preview'),
     freeze: $('freeze'),
     countdown: $('countdown'),
@@ -335,8 +336,9 @@
       check(token);
       await Camera.attach(el.preview);
       check(token);
+      updatePreviewFit();
     } catch (err) {
-      if (err instanceof Cancelled) return;
+      if (err instanceof Cancelled || token !== flowToken) return; // guest already went back
       console.error('Camera error', err);
       await showOverlay({ icon: 'error', text: t('error.camera'), button: 'OK' });
       goHome();
@@ -351,6 +353,28 @@
       return;
     }
     showCaptureControls();
+  }
+
+  /**
+   * config.previewFit: 'cover' fills the stage, 'contain' letterboxes, 'auto' letterboxes only when
+   * the camera and the stage have different orientations (a landscape webcam on a portrait screen).
+   * The freeze frame gets the same class so it always matches the live preview.
+   */
+  function updatePreviewFit() {
+    const setting = String(cfg.previewFit || 'auto').toLowerCase();
+    let contain = setting === 'contain';
+    if (setting !== 'contain' && setting !== 'cover') {
+      const vw = el.preview.videoWidth;
+      const vh = el.preview.videoHeight;
+      const stage = el.stage.getBoundingClientRect();
+      if (vw && vh && stage.width && stage.height) {
+        const cameraPortrait = vh > vw;
+        const stagePortrait = stage.height > stage.width;
+        contain = cameraPortrait !== stagePortrait;
+      }
+    }
+    el.preview.classList.toggle('fit-contain', contain);
+    el.freeze.classList.toggle('fit-contain', contain);
   }
 
   async function runCountdown(seconds, token) {
@@ -400,6 +424,7 @@
         const blob = await Camera.capturePhoto(el.preview, {
           mirror: Boolean(cfg.mirrorSavedPhotos),
           quality: cfg.photoQuality,
+          caption: cfg.photoCaption ? captionText() : '',
         });
         check(token);
         const url = URL.createObjectURL(blob);
@@ -436,7 +461,7 @@
       card.className = 'photo-card selected';
       card.setAttribute('aria-pressed', 'true');
       card.innerHTML =
-        `<img alt="Photo ${shot.index}">` +
+        `<img alt="${t('review.photoAlt', { n: shot.index })}">` +
         `<span class="badge" aria-hidden="true">${CHECK_ICON}${X_ICON}</span>` +
         `<span class="photo-index">${shot.index}</span>`;
       card.querySelector('img').src = shot.url;
@@ -497,21 +522,55 @@
     el.btnPhotoSave.disabled = count === 0;
   }
 
+  /** "Lena & Lami · 10.10.2026" – used for the strip and the optional photo caption. */
+  function captionText() {
+    return [cfg.coupleNames, cfg.eventDate].filter(Boolean).join(' · ');
+  }
+
+  /** Compose the print strip from the selected shots; resolves null (and logs) when it fails. */
+  function composeStrip(selected) {
+    if (!cfg.saveStrip || !window.Strip) return Promise.resolve(null);
+    return window.Strip.compose(selected, {
+      coupleNames: cfg.coupleNames,
+      eventDate: cfg.eventDate,
+      brand: t('strip.brand'),
+      dpi: cfg.stripDpi,
+    }).catch((err) => {
+      console.error('Photo strip could not be composed', err);
+      return null;
+    });
+  }
+
+  /** Sub line for the "saved" overlay: explain when files ended up as browser downloads. */
+  function savedSubline(results) {
+    if (results.some((r) => r && r.fallback)) return t('saved.fallback');
+    if (results.some((r) => r && r.method === 'download')) return t('saved.downloaded');
+    return '';
+  }
+
   async function savePhotos() {
     const selected = shots.filter((s) => s.selected);
     if (!selected.length) return;
     flowToken += 1;
     showOverlay({ icon: 'spinner', text: t('saving') });
+    const stripPromise = composeStrip(selected); // renders while the photos upload
     try {
-      let method = 'backend';
+      const results = [];
       for (const shot of selected) {
-        const result = await Saver.savePhoto(shot.blob, { session, index: shot.index });
-        method = result.method;
+        results.push(await Saver.savePhoto(shot.blob, { session, index: shot.index }));
+      }
+      const strip = await stripPromise;
+      if (strip) {
+        try {
+          results.push(await Saver.savePhoto(strip, { session, index: 'strip' }));
+        } catch (err) {
+          console.error('Photo strip could not be saved', err); // the photos are safe – never block the guests
+        }
       }
       await showOverlay({
         icon: 'heart',
         text: t('saved.thanks'),
-        sub: method === 'download' ? t('saved.downloaded') : '',
+        sub: savedSubline(results),
         duration: cfg.thanksDurationMs,
       });
     } catch (err) {
@@ -647,7 +706,7 @@
       await showOverlay({
         icon: 'heart',
         text: t('saved.thanks'),
-        sub: result.method === 'download' ? t('saved.downloaded') : '',
+        sub: savedSubline([result]),
         duration: cfg.thanksDurationMs,
       });
     } catch (err) {
@@ -720,6 +779,9 @@
   el.overlayBtn.addEventListener('click', hideOverlay);
   document.addEventListener('fotobox:langchange', renderTexts);
   window.addEventListener('resize', layoutReview);
+  window.addEventListener('resize', updatePreviewFit);
+  window.addEventListener('orientationchange', updatePreviewFit);
+  el.preview.addEventListener('resize', updatePreviewFit); // fires when the stream's dimensions change
   document.addEventListener('pointerdown', resetIdle, { passive: true });
 
   // Keyboard: works with a physical "big button" mapped to Enter/Space.
@@ -769,6 +831,7 @@
   I18N.setLang('de');
   renderTexts();
   el.preview.classList.toggle('mirrored', Boolean(cfg.mirrorPreview));
+  if (window.Strip) window.Strip.ensureFonts(); // warm up the canvas fonts for captions and the strip
   Saver.detectBackend().then((available) => {
     console.info(available ? 'FotoBee backend detected – captures are saved on the server.' : 'No backend – captures will be downloaded.');
   });

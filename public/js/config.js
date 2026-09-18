@@ -19,6 +19,11 @@ window.FOTOBOX_CONFIG = {
   mirrorPreview: true,           // mirror the live feed like a mirror
   mirrorSavedPhotos: false,      // save the photo as the camera sees it (text readable)
   freezeFrameMs: 500,            // show the captured still briefly after the flash
+  photoCaption: false,           // stamp "coupleNames · eventDate" bottom-right on every saved photo
+
+  // Photo strip: a print-ready composite of the selected photos, saved as <session>_strip.jpg
+  saveStrip: true,               // 3–4 photos → 2x6" strip, 1–2 photos → 4x6" postcard
+  stripDpi: 300,                 // print resolution of the strip (600x1800 / 1200x1800 px at 300 dpi)
 
   // Video mode
   videoAutoStart: true,          // tapping "Video" starts the countdown right away (no extra button)
@@ -30,6 +35,10 @@ window.FOTOBOX_CONFIG = {
   sound: true,               // countdown beeps + shutter click
   idleTimeoutMs: 90000,      // return to start screen after inactivity (0 = never)
   thanksDurationMs: 2200,    // "Saved! Thank you" overlay duration
+
+  // Camera
+  preferredCamera: '',       // part of the camera label (case-insensitive, e.g. 'Logitech') or a deviceId; '' = default
+  previewFit: 'auto',        // 'auto' | 'cover' | 'contain' – 'auto' letterboxes when camera and screen orientation differ
 
   // Camera constraints passed to getUserMedia
   video: {
