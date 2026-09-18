@@ -102,7 +102,7 @@ async function run() {
 
     /* ---------------- Home ---------------- */
     console.log('\nHome screen');
-    await page.goto(`${base}/?photoFirstCountdownSeconds=2&countdownSeconds=1&pauseBetweenShotsMs=600&freezeFrameMs=300&videoSeconds=3&thanksDurationMs=700`);
+    await page.goto(`${base}/?photoFirstCountdownSeconds=2&countdownSeconds=1&pauseBetweenShotsMs=600&freezeFrameMs=300&videoFirstCountdownSeconds=1&videoSeconds=3&thanksDurationMs=700`);
     await page.waitForSelector('#screen-home', { state: 'visible' });
     assert((await page.textContent('#btn-photo .option-label')).trim() === 'Foto', 'photo option is visible');
     assert((await page.textContent('#couple-line')).includes('Lena & Lami'), 'couple line shows the configured names');
@@ -124,20 +124,32 @@ async function run() {
     await page.waitForFunction(() => document.getElementById('shot-counter').textContent.startsWith('Foto 2'), null, { timeout: 15000 });
     await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
     const secondNumber = await page.textContent('#countdown-number');
-    assert(secondNumber === '1', `second countdown uses countdownSeconds (got ${secondNumber})`);
+    assert(secondNumber === '1', `later countdowns use countdownSeconds (got ${secondNumber})`);
+    assert(await page.isHidden('#stage-message'), 'no message between the pictures');
     await page.screenshot({ path: path.join(SHOTS, '03-photo-second-countdown.png') });
 
-    await page.waitForSelector('#screen-photo-review', { state: 'visible', timeout: 20000 });
+    await page.waitForSelector('#screen-photo-review', { state: 'visible', timeout: 30000 });
     const cards = await page.$$('#review-photos .photo-card');
-    assert(cards.length === 2, `two photos on the review screen (got ${cards.length})`);
+    assert(cards.length === 4, `four photos on the review screen (got ${cards.length})`);
     const naturalWidths = await page.$$eval('#review-photos img', (imgs) => imgs.map((img) => img.naturalWidth));
     assert(naturalWidths.every((w) => w > 0), `captured images decode (${naturalWidths.join('x')})`);
-    assert((await page.textContent('#btn-photo-save')).trim() === 'Beide speichern', 'save button reads "Beide speichern"');
     await page.waitForTimeout(400);
+    const fits = await page.evaluate(() => {
+      const box = document.getElementById('review-photos').getBoundingClientRect();
+      return Array.from(document.querySelectorAll('#review-photos .photo-card')).every((c) => {
+        const r = c.getBoundingClientRect();
+        return r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 20 && r.bottom <= box.bottom + 20 && r.width > 100;
+      });
+    });
+    assert(fits, 'all four photo cards fit inside the review area');
+    assert((await page.textContent('#btn-photo-save')).trim() === 'Alle speichern', 'save button reads "Alle speichern"');
     await page.screenshot({ path: path.join(SHOTS, '04-photo-review.png') });
 
     await cards[1].click();
-    assert((await page.textContent('#btn-photo-save')).trim() === 'Dieses speichern', 'deselecting one photo updates the label');
+    assert((await page.textContent('#btn-photo-save')).trim() === '3 Fotos speichern', 'deselecting one photo updates the label');
+    await cards[2].click();
+    await cards[3].click();
+    assert((await page.textContent('#btn-photo-save')).trim() === 'Dieses speichern', 'one selected photo reads "Dieses speichern"');
     await page.screenshot({ path: path.join(SHOTS, '05-photo-review-one-selected.png') });
     await cards[0].click();
     assert(await page.isDisabled('#btn-photo-save'), 'save button disabled when nothing is selected');
@@ -164,9 +176,10 @@ async function run() {
     /* ---------------- Video flow ---------------- */
     console.log('\nVideo flow');
     await page.click('#btn-video');
-    await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
-    assert((await page.textContent('#btn-start')).trim() === 'Aufnehmen', 'record button shown');
-    await page.click('#btn-start');
+    await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
+    assert(await page.isHidden('#btn-start'), 'video mode starts its countdown right away');
+    const videoCountdown = await page.textContent('#countdown-number');
+    assert(videoCountdown === '1', `video countdown uses videoFirstCountdownSeconds (got ${videoCountdown})`);
     await page.waitForSelector('#rec:not([hidden])', { timeout: 10000 });
     await page.waitForTimeout(700);
     assert(await page.isVisible('#btn-stop'), 'stop button visible while recording');
@@ -180,8 +193,8 @@ async function run() {
     // Retake
     await page.click('#btn-video-retake');
     await page.waitForSelector('#screen-capture', { state: 'visible' });
-    assert(!(await page.isHidden('#btn-start')), 'retake returns to the recording screen');
-    await page.click('#btn-start');
+    await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
+    assert(true, 'retake restarts the countdown immediately');
     await page.waitForSelector('#rec:not([hidden])', { timeout: 10000 });
     await page.waitForTimeout(800);
     await page.click('#btn-stop'); // stop early
@@ -198,8 +211,8 @@ async function run() {
     /* ---------------- Keyboard ---------------- */
     console.log('\nKeyboard');
     await page.keyboard.press('v');
-    await page.waitForSelector('#btn-start:not([disabled])', { timeout: 10000 });
-    assert((await page.textContent('#btn-start')).trim() === 'Aufnehmen', 'V opens video mode with the German record label');
+    await page.waitForSelector('#countdown:not([hidden])', { timeout: 10000 });
+    assert((await page.textContent('#stage-message')).includes('Aufnahme'), 'V opens video mode and shows the German get-ready message');
     await page.keyboard.press('Escape');
     await page.waitForSelector('#screen-home', { state: 'visible' });
     assert(await page.evaluate(() => document.documentElement.lang === 'de'), 'document language is German');
@@ -209,6 +222,20 @@ async function run() {
     await page.setViewportSize({ width: 800, height: 1200 });
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SHOTS, '10-home-portrait.png') });
+    await page.click('#btn-photo');
+    await page.waitForSelector('#screen-photo-review', { state: 'visible', timeout: 30000 });
+    await page.waitForTimeout(400);
+    const fitsPortrait = await page.evaluate(() => {
+      const box = document.getElementById('review-photos').getBoundingClientRect();
+      return Array.from(document.querySelectorAll('#review-photos .photo-card')).every((c) => {
+        const r = c.getBoundingClientRect();
+        return r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 20 && r.bottom <= box.bottom + 20 && r.width > 100;
+      });
+    });
+    assert(fitsPortrait, 'four photo cards fit in portrait as well');
+    await page.screenshot({ path: path.join(SHOTS, '11-photo-review-portrait.png') });
+    await page.click('#btn-photo-none');
+    await page.waitForSelector('#screen-home', { state: 'visible', timeout: 10000 });
 
     /* ---------------- API ---------------- */
     console.log('\nAPI');

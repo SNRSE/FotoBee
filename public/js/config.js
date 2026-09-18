@@ -12,18 +12,19 @@ window.FOTOBOX_CONFIG = {
   // Photo mode
   photoAutoStart: true,          // tapping "Foto" starts the countdown right away (no extra button)
   photoFirstCountdownSeconds: 5, // countdown before the first picture (time to get in position)
-  countdownSeconds: 3,           // countdown before every further picture / before the video
-  photoCount: 2,                 // number of shots per session
-  pauseBetweenShotsMs: 1600, // "one more…" pause between the shots
-  photoQuality: 0.92,        // JPEG quality 0..1
-  mirrorPreview: true,       // mirror the live feed like a mirror
-  mirrorSavedPhotos: false,  // save the photo as the camera sees it (text readable)
-  freezeFrameMs: 900,        // show the captured still briefly after the flash
+  countdownSeconds: 2,           // quick countdown before every further picture (2 - 1)
+  photoCount: 4,                 // number of pictures per session
+  pauseBetweenShotsMs: 0,        // extra pause with a "Noch eins…" message between pictures (0 = none)
+  photoQuality: 0.92,            // JPEG quality 0..1
+  mirrorPreview: true,           // mirror the live feed like a mirror
+  mirrorSavedPhotos: false,      // save the photo as the camera sees it (text readable)
+  freezeFrameMs: 500,            // show the captured still briefly after the flash
 
   // Video mode
-  videoSeconds: 15,
-  videoCountdown: true,      // 3-2-1 before recording starts
-  allowStopEarly: true,      // show a stop button while recording
+  videoAutoStart: true,          // tapping "Video" starts the countdown right away (no extra button)
+  videoFirstCountdownSeconds: 5, // countdown before the recording starts (0 = none)
+  videoSeconds: 15,              // maximum recording length
+  allowStopEarly: true,          // show a stop button while recording
 
   // General
   sound: true,               // countdown beeps + shutter click

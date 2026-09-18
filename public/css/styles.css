@@ -707,10 +707,13 @@ button {
 }
 
 .photos {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), auto);
+  gap: clamp(16px, 2.5vw, 36px);
   align-items: center;
+  justify-items: center;
   justify-content: center;
-  gap: clamp(16px, 3vw, 44px);
+  align-content: center;
   width: 100%;
   flex: 1;
   min-height: 0;
@@ -718,8 +721,7 @@ button {
 
 .photo-card {
   position: relative;
-  flex: 0 1 auto;
-  max-width: 46%;
+  max-width: 100%;
   padding: clamp(8px, 1vw, 14px);
   background: #fff;
   border: 1px solid var(--gold);
@@ -739,9 +741,8 @@ button {
   display: block;
   width: auto;
   height: auto;
-  max-width: min(44vw, 100%);
-  max-height: 52vh;
-  object-fit: contain;
+  max-width: 100%;
+  object-fit: cover;
   border-radius: 8px;
   background: var(--stage-bg);
 }
@@ -948,20 +949,6 @@ button {
   .option-text {
     display: flex;
     flex-direction: column;
-  }
-
-  .photos {
-    flex-direction: column;
-  }
-
-  .photo-card {
-    max-width: 100%;
-    width: 100%;
-  }
-
-  .photo-card img {
-    max-width: calc(100vw - 64px);
-    max-height: 30vh;
   }
 
   .controls .btn {

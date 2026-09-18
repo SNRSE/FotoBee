@@ -346,6 +346,10 @@
       runPhotoSequence();
       return;
     }
+    if (mode === 'video' && cfg.videoAutoStart) {
+      startVideoRecording();
+      return;
+    }
     showCaptureControls();
   }
 
@@ -381,11 +385,11 @@
     try {
       for (let i = 0; i < cfg.photoCount; i += 1) {
         el.shotCounter.textContent = t('photo.shotOf', { n: i + 1, total: cfg.photoCount });
-        if (i > 0) {
+        if (i > 0 && cfg.pauseBetweenShotsMs > 0) {
           showMessage(t('photo.oneMore'));
           await wait(cfg.pauseBetweenShotsMs, token);
           hideMessage();
-        } else {
+        } else if (i === 0) {
           showMessage(t('photo.getReady'));
         }
         const seconds = i === 0 ? cfg.photoFirstCountdownSeconds : cfg.countdownSeconds;
@@ -399,7 +403,14 @@
         });
         check(token);
         const url = URL.createObjectURL(blob);
-        shots.push({ blob, url, selected: true, index: i + 1 });
+        shots.push({
+          blob,
+          url,
+          selected: true,
+          index: i + 1,
+          width: el.preview.videoWidth || 16,
+          height: el.preview.videoHeight || 9,
+        });
 
         // Freeze frame: show the still exactly as the guests saw the preview.
         el.freeze.src = url;
@@ -437,9 +448,42 @@
         resetIdle();
       });
       el.reviewPhotos.appendChild(card);
+      shot.img = card.querySelector('img');
     });
     updateSaveButton();
     setScreen('photo-review');
+    requestAnimationFrame(layoutReview);
+  }
+
+  /** Size the review photos so 1–4 pictures fit the available space (2x2 grid for four). */
+  function layoutReview() {
+    if (currentScreen() !== 'photo-review' || !shots.length) return;
+    const box = el.reviewPhotos.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    const n = shots.length;
+    const portrait = box.width < box.height;
+    const cols = n >= 4 ? 2 : portrait ? 1 : n;
+    const rows = Math.ceil(n / cols);
+    const card = el.reviewPhotos.querySelector('.photo-card');
+    const cs = getComputedStyle(card);
+    const frame = (parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)) * 2;
+    const gap = parseFloat(getComputedStyle(el.reviewPhotos).columnGap) || 24;
+    const badgeRoom = 18; // badge and index label stick out of the frame
+    const cellW = (box.width - gap * (cols - 1)) / cols - frame;
+    const cellH = (box.height - gap * (rows - 1)) / rows - frame - badgeRoom;
+    el.reviewPhotos.style.setProperty('--cols', String(cols));
+    shots.forEach((shot) => {
+      if (!shot.img) return;
+      const ratio = shot.width / shot.height;
+      let w = cellW;
+      let h = w / ratio;
+      if (h > cellH) {
+        h = cellH;
+        w = h * ratio;
+      }
+      shot.img.style.width = `${Math.max(40, Math.floor(w))}px`;
+      shot.img.style.height = `${Math.max(24, Math.floor(h))}px`;
+    });
   }
 
   function updateSaveButton() {
@@ -549,7 +593,12 @@
     hideMessage();
     el.btnStart.hidden = true;
     try {
-      if (cfg.videoCountdown) await runCountdown(cfg.countdownSeconds, token);
+      const seconds = Math.max(0, Math.round(cfg.videoFirstCountdownSeconds));
+      if (seconds > 0) {
+        showMessage(t('video.getReady'));
+        await runCountdown(seconds, token);
+        hideMessage();
+      }
       check(token);
       recorder = Camera.createRecorder();
       if (!recorder) throw new Error('MediaRecorder unsupported');
@@ -612,7 +661,8 @@
     flowToken += 1;
     cleanupVideo();
     setScreen('capture');
-    showCaptureControls();
+    if (cfg.videoAutoStart) startVideoRecording();
+    else showCaptureControls();
   }
 
   async function discardVideo() {
@@ -669,6 +719,7 @@
   el.btnVideoSave.addEventListener('click', saveVideo);
   el.overlayBtn.addEventListener('click', hideOverlay);
   document.addEventListener('fotobox:langchange', renderTexts);
+  window.addEventListener('resize', layoutReview);
   document.addEventListener('pointerdown', resetIdle, { passive: true });
 
   // Keyboard: works with a physical "big button" mapped to Enter/Space.

@@ -3,3 +3,4 @@ captures/
 test/screenshots/
 *.log
 .DS_Store
+.claude/
