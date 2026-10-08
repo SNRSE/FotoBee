@@ -460,6 +460,15 @@ button {
   transform: scaleX(-1);
 }
 
+/* DSLR: the live view is hidden while the camera transfers a picture (config.dslrHidePreview) */
+#preview {
+  transition: opacity 0.25s ease;
+}
+
+.stage.preview-hidden #preview {
+  opacity: 0;
+}
+
 .freeze {
   z-index: 2;
 }

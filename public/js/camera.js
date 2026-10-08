@@ -224,7 +224,12 @@
       ctx.scale(-1, 1);
     }
     ctx.drawImage(videoEl, 0, 0, width, height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // the caption must read correctly even on a mirrored photo
     drawCaption(ctx, width, height, opts);
+    return toBlob(canvas, opts);
+  }
+
+  function toBlob(canvas, opts) {
     return new Promise((resolve, reject) => {
       canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))),
@@ -232,6 +237,33 @@
         opts.quality
       );
     });
+  }
+
+  /**
+   * A picture that came from a real camera (JPEG Blob): decode it, mirror / caption it when requested
+   * and return { blob, width, height }. Without mirror and caption the original file is kept untouched.
+   */
+  async function processPhoto(blob, options) {
+    const opts = Object.assign({ mirror: false, quality: 0.92, type: 'image/jpeg', caption: '' }, options);
+    const bitmap = await createImageBitmap(blob);
+    const { width, height } = bitmap;
+    if (!opts.mirror && !opts.caption) {
+      bitmap.close();
+      return { blob, width, height };
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (opts.mirror) {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawCaption(ctx, width, height, opts);
+    return { blob: await toBlob(canvas, opts), width, height };
   }
 
   const RECORDER_TYPES = [
@@ -264,5 +296,5 @@
     }
   }
 
-  window.Camera = { start, stop, attach, capturePhoto, createRecorder, getStream, listCameras };
+  window.Camera = { start, stop, attach, capturePhoto, processPhoto, createRecorder, getStream, listCameras };
 })();

@@ -489,6 +489,17 @@ ${srv.stderr}`);
     assert.equal(missing.json().ok, false);
   });
 
+  test('without DSLR_URL the camera routes say so', async () => {
+    const health = (await request(srv, 'GET', '/api/health')).json();
+    assert.equal(health.dslr, false);
+    const status = await request(srv, 'GET', '/api/camera');
+    assert.equal(status.status, 200);
+    assert.deepEqual(status.json(), { ok: false, available: false, connected: false, error: 'No DSLR configured' });
+    const shoot = await request(srv, 'POST', '/api/camera/shoot');
+    assert.equal(shoot.status, 503);
+    assert.equal(shoot.json().ok, false);
+  });
+
   test('unknown /api route -> 404 JSON, wrong method -> 405', async () => {
     const res = await request(srv, 'GET', '/api/nope');
     assert.equal(res.status, 404);
@@ -511,6 +522,192 @@ ${srv.stderr}`);
 /* ------------------------------------------------------------------ */
 /* Lifecycle                                                           */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* DSLR (Lumix Bridge) proxy                                           */
+/* ------------------------------------------------------------------ */
+
+/** A stand-in for the Lumix Bridge: /command (status, discover, connect) and /shoot.jpg. */
+function startFakeBridge() {
+  return new Promise((resolve) => {
+    const state = { connected: false, shoot: 'ok', noCameras: false, commands: [], shots: 0, lastTimeout: null };
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url, 'http://localhost');
+      if (url.pathname === '/command') {
+        let raw = '';
+        req.on('data', (chunk) => (raw += chunk));
+        req.on('end', () => {
+          const cmd = JSON.parse(raw || '{}');
+          state.commands.push(cmd.command);
+          let reply;
+          if (cmd.command === 'status') {
+            reply = { ok: true, command: 'status', state: state.connected ? 'connected' : 'disconnected', camera: state.connected ? 'DC-GH5' : '', connection: state.connected ? 'usb' : 'none' };
+          } else if (cmd.command === 'discover') {
+            reply = { ok: true, command: 'discover', cameras: state.noCameras ? [] : [{ index: 0, name: 'DC-GH5', connection: 'usb' }] };
+          } else if (cmd.command === 'connect') {
+            state.connected = true;
+            reply = { ok: true, command: 'connect', session_id: 'cam-1' };
+          } else if (cmd.command === 'disconnect') {
+            // a fresh session heals a "stale" camera, like the real bridge after a re-plug
+            state.connected = false;
+            if (state.shoot === 'stale') state.shoot = 'ok';
+            reply = { ok: true, command: 'disconnect' };
+          } else {
+            reply = { ok: false, command: cmd.command, message: 'Unsupported command' };
+          }
+          res.writeHead(reply.ok ? 200 : 409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(reply));
+        });
+        return;
+      }
+      if (url.pathname === '/shoot.jpg') {
+        state.shots += 1;
+        state.lastTimeout = url.searchParams.get('timeout');
+        if (state.shoot === 'timeout') {
+          res.writeHead(504, { 'Content-Type': 'text/plain' });
+          res.end('Shoot failed: Timeout waiting for the captured image');
+          return;
+        }
+        if (state.shoot === 'stale') {
+          res.writeHead(409, { 'Content-Type': 'text/plain' });
+          res.end('Shoot failed: LMX_func_api_Rec_Ctrl_Release failed (retError=0x0)');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': FAKE_JPEG.length,
+          'X-Lumix-File': 'P1000001.JPG',
+          'X-Lumix-Wait-Ms': '1200',
+          'X-Lumix-Download-Ms': '300',
+        });
+        res.end(FAKE_JPEG);
+        return;
+      }
+      res.writeHead(404);
+      res.end('Not found');
+    });
+    server.listen(0, '127.0.0.1', () => {
+      resolve({
+        state,
+        url: `http://127.0.0.1:${server.address().port}`,
+        stop: () => new Promise((done) => server.close(done)),
+      });
+    });
+  });
+}
+
+describe('DSLR (Lumix Bridge) proxy', () => {
+  let srv;
+  let bridge;
+  let captureDir;
+
+  before(async () => {
+    bridge = await startFakeBridge();
+    captureDir = makeTempDir('fotobee-dslr-');
+    srv = await startServer({ CAPTURE_DIR: captureDir, DSLR_URL: bridge.url, DSLR_BRIDGE_EXE: '0' });
+  });
+
+  after(async () => {
+    await srv.stop();
+    await bridge.stop();
+    fs.rmSync(captureDir, { recursive: true, force: true });
+  });
+
+  test('health reports dslr: true and startup connects the camera', async () => {
+    const health = (await request(srv, 'GET', '/api/health')).json();
+    assert.equal(health.dslr, true);
+    await waitFor(() => srv.log.includes('DSLR: DC-GH5 connected'));
+    assert.ok(srv.log.includes('DSLR: DC-GH5 connected'), srv.log);
+    assert.ok(bridge.state.commands.includes('connect'), 'the server connected the camera over USB');
+  });
+
+  test('GET /api/camera reports the connected camera', async () => {
+    const res = await request(srv, 'GET', '/api/camera');
+    assert.equal(res.status, 200);
+    const status = res.json();
+    assert.equal(status.ok, true);
+    assert.equal(status.connected, true);
+    assert.equal(status.camera, 'DC-GH5');
+    assert.equal(status.connection, 'usb');
+  });
+
+  test('POST /api/camera/shoot returns the camera JPEG with the bridge headers', async () => {
+    const res = await request(srv, 'POST', '/api/camera/shoot?timeout=7000');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['content-type'], 'image/jpeg');
+    assert.equal(res.headers['cache-control'], 'no-store');
+    assert.ok(res.body.equals(FAKE_JPEG), 'the camera file is passed through unchanged');
+    assert.equal(res.headers['x-lumix-file'], 'P1000001.JPG');
+    assert.equal(bridge.state.lastTimeout, '7000', 'the timeout is forwarded to the bridge');
+    await waitFor(() => srv.log.includes('[dslr] shot P1000001.JPG')); // stdout arrives asynchronously
+    assert.ok(srv.log.includes('[dslr] shot P1000001.JPG'), srv.log);
+  });
+
+  test('a refused release reconnects the camera and retries once', async () => {
+    bridge.state.shoot = 'stale';
+    const before = bridge.state.commands.length;
+    const res = await request(srv, 'POST', '/api/camera/shoot');
+    assert.equal(res.status, 200, res.body.toString());
+    assert.ok(res.body.equals(FAKE_JPEG));
+    const during = bridge.state.commands.slice(before);
+    assert.ok(during.includes('disconnect') && during.includes('connect'), `reconnected: ${during.join(',')}`);
+    await waitFor(() => srv.log.includes('reconnecting the camera'));
+    assert.ok(srv.log.includes('reconnecting the camera'), srv.log);
+  });
+
+  test('a camera that disappeared from USB gives 503 with a clear reason', async () => {
+    bridge.state.shoot = 'stale';
+    bridge.state.noCameras = true;
+    try {
+      const res = await request(srv, 'POST', '/api/camera/shoot');
+      assert.equal(res.status, 503);
+      assert.match(res.json().error, /No camera found on USB/);
+    } finally {
+      bridge.state.noCameras = false;
+      bridge.state.shoot = 'ok';
+      await request(srv, 'GET', '/api/camera'); // reconnect for the following tests
+    }
+  });
+
+  test('a bridge timeout becomes 504 JSON', async () => {
+    bridge.state.shoot = 'timeout';
+    try {
+      const res = await request(srv, 'POST', '/api/camera/shoot');
+      assert.equal(res.status, 504);
+      assert.equal(res.json().ok, false);
+      assert.match(res.json().error, /Timeout/);
+    } finally {
+      bridge.state.shoot = 'ok';
+    }
+  });
+});
+
+describe('DSLR bridge unreachable', () => {
+  let srv;
+  let captureDir;
+
+  before(async () => {
+    captureDir = makeTempDir('fotobee-dslr-down-');
+    srv = await startServer({ CAPTURE_DIR: captureDir, DSLR_URL: 'http://127.0.0.1:9', DSLR_BRIDGE_EXE: '0' });
+  });
+
+  after(async () => {
+    await srv.stop();
+    fs.rmSync(captureDir, { recursive: true, force: true });
+  });
+
+  test('the booth keeps working and the routes report the bridge as unreachable', async () => {
+    await waitFor(() => srv.log.includes('DSLR: not available'));
+    assert.ok(srv.log.includes('DSLR: not available'), srv.log);
+    const status = (await request(srv, 'GET', '/api/camera')).json();
+    assert.equal(status.available, false);
+    assert.match(status.error, /unreachable/);
+    const shoot = await request(srv, 'POST', '/api/camera/shoot');
+    assert.equal(shoot.status, 503);
+    const upload = await request(srv, 'POST', '/api/photos', { body: FAKE_JPEG, headers: { 'Content-Type': 'image/jpeg', 'X-Session': 's', 'X-Index': '1' } });
+    assert.equal(upload.status, 201, 'uploads are unaffected');
+  });
+});
 
 describe('lifecycle', () => {
   for (const signal of ['SIGTERM', 'SIGINT']) {

@@ -98,6 +98,58 @@
   let audioCtx = null;
   let overlayTimer = null;
   let overlayResolve = null;
+  let dslrActive = false; // the real camera answered for this photo session
+
+  /* ------------------------------------------------------------------ */
+  /* DSLR: real shutter release through the server (Lumix Bridge)         */
+  /* ------------------------------------------------------------------ */
+  /** config.dslr: 'auto' (use it when available), 'required' (true/1) or 'off' (false/0/''). */
+  function dslrSetting() {
+    const value = String(cfg.dslr).trim().toLowerCase();
+    if (value === 'true' || value === '1' || value === 'required') return 'required';
+    if (value === 'false' || value === '0' || value === '' || value === 'off') return 'off';
+    return 'auto';
+  }
+
+  /** Ask the server whether a camera is connected (it connects it over USB when needed). */
+  async function detectDslr() {
+    if (dslrSetting() === 'off' || location.protocol === 'file:') return false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch('/api/camera', { cache: 'no-store', signal: controller.signal });
+      const data = await res.json();
+      return Boolean(data && data.connected);
+    } catch (err) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Release the shutter and return the camera's JPEG as a Blob. */
+  async function dslrShoot() {
+    const timeoutMs = Math.max(1000, Math.round(cfg.dslrTimeoutMs || 15000));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs + 10000);
+    try {
+      const res = await fetch(`/api/camera/shoot?timeout=${timeoutMs}`, { method: 'POST', cache: 'no-store', signal: controller.signal });
+      if (!res.ok) {
+        let detail = '';
+        try {
+          detail = (await res.json()).error || '';
+        } catch (err) {
+          /* no JSON body */
+        }
+        throw new Error(`DSLR shoot failed (${res.status}) ${detail}`.trim());
+      }
+      const blob = await res.blob();
+      if (!blob.size) throw new Error('DSLR shoot returned an empty picture');
+      return blob;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   class Cancelled extends Error {}
 
@@ -239,6 +291,11 @@
     el.flash.classList.add('fire');
   }
 
+  /** Hide / show the live view (DSLR: while a picture is transferred from the camera). */
+  function setPreviewHidden(hidden) {
+    el.stage.classList.toggle('preview-hidden', Boolean(hidden));
+  }
+
   function readyMessage() {
     return mode === 'photo' ? t('photo.getReady') : t('video.ready', { s: cfg.videoSeconds });
   }
@@ -291,6 +348,7 @@
     cleanupShots();
     hideMessage();
     el.countdown.hidden = true;
+    setPreviewHidden(false);
     Camera.stop();
     el.preview.srcObject = null;
     mode = null;
@@ -331,6 +389,8 @@
     el.preview.classList.toggle('mirrored', Boolean(cfg.mirrorPreview));
     showMessage(readyMessage());
 
+    // The camera check runs while the preview starts, so it costs no extra time.
+    const dslrCheck = mode === 'photo' ? detectDslr() : Promise.resolve(false);
     try {
       await Camera.start({ audio: mode === 'video' });
       check(token);
@@ -341,6 +401,13 @@
       if (err instanceof Cancelled || token !== flowToken) return; // guest already went back
       console.error('Camera error', err);
       await showOverlay({ icon: 'error', text: t('error.camera'), button: 'OK' });
+      goHome();
+      return;
+    }
+    dslrActive = await dslrCheck;
+    check(token);
+    if (mode === 'photo' && !dslrActive && dslrSetting() === 'required') {
+      await showOverlay({ icon: 'error', text: t('error.dslr'), button: 'OK' });
       goHome();
       return;
     }
@@ -399,12 +466,55 @@
   /* ------------------------------------------------------------------ */
   /* Photo flow                                                          */
   /* ------------------------------------------------------------------ */
+  /**
+   * DSLR picture: the shutter has just fired; fetch the file from the camera while the booth already
+   * shows the next countdown. The live view is hidden during the transfer (config.dslrHidePreview).
+   * Resolves to a shot entry; falls back to the preview frame unless the camera is required.
+   */
+  async function takeDslrShot(index, options, token) {
+    setPreviewHidden(cfg.dslrHidePreview);
+    try {
+      let shot = null;
+      try {
+        const file = await dslrShoot();
+        check(token);
+        shot = await Camera.processPhoto(file, options);
+      } catch (err) {
+        if (err instanceof Cancelled) throw err;
+        check(token);
+        console.warn('DSLR picture failed – using the preview frame instead', err);
+        if (dslrSetting() === 'required') throw err;
+        const blob = await Camera.capturePhoto(el.preview, options);
+        shot = { blob, width: el.preview.videoWidth || 16, height: el.preview.videoHeight || 9 };
+      }
+      check(token);
+      return { blob: shot.blob, url: URL.createObjectURL(shot.blob), selected: true, index, width: shot.width, height: shot.height };
+    } finally {
+      setPreviewHidden(false);
+    }
+  }
+
   async function runPhotoSequence() {
     const token = ++flowToken;
     hideMessage();
     el.btnStart.hidden = true;
     cleanupShots();
     session = Saver.sessionId();
+    const photoOptions = {
+      mirror: Boolean(cfg.mirrorSavedPhotos),
+      quality: cfg.photoQuality,
+      caption: cfg.photoCaption ? captionText() : '',
+    };
+
+    // DSLR: the transfer of a picture runs while the next countdown is shown; it is collected
+    // before the next shutter release so the pictures stay in order.
+    let pending = null;
+    const collectPending = async () => {
+      if (!pending) return;
+      const task = pending;
+      pending = null;
+      shots.push(await task);
+    };
 
     try {
       for (let i = 0; i < cfg.photoCount; i += 1) {
@@ -416,16 +526,22 @@
         } else if (i === 0) {
           showMessage(t('photo.getReady'));
         }
-        const seconds = i === 0 ? cfg.photoFirstCountdownSeconds : cfg.countdownSeconds;
+        const seconds = i === 0 ? cfg.photoFirstCountdownSeconds : dslrActive ? cfg.dslrCountdownSeconds : cfg.countdownSeconds;
         await runCountdown(Math.max(1, Math.round(seconds)), token);
         hideMessage();
+        await collectPending();
+        check(token);
         fireFlash();
         shutterSound();
-        const blob = await Camera.capturePhoto(el.preview, {
-          mirror: Boolean(cfg.mirrorSavedPhotos),
-          quality: cfg.photoQuality,
-          caption: cfg.photoCaption ? captionText() : '',
-        });
+
+        if (dslrActive) {
+          // Real camera: the shutter (and flash) fire now; the file is fetched during the next countdown.
+          pending = takeDslrShot(i + 1, photoOptions, token);
+          pending.catch(() => {}); // the rejection is handled where it is awaited
+          continue;
+        }
+
+        const blob = await Camera.capturePhoto(el.preview, photoOptions);
         check(token);
         const url = URL.createObjectURL(blob);
         shots.push({
@@ -443,6 +559,12 @@
         el.freeze.hidden = false;
         await wait(cfg.freezeFrameMs, token);
         el.freeze.hidden = true;
+      }
+      if (pending) {
+        el.shotCounter.textContent = '';
+        showMessage(t('photo.transferring'));
+        await collectPending();
+        hideMessage();
       }
       showPhotoReview();
     } catch (err) {

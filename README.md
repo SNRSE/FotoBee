@@ -84,6 +84,10 @@ Edit `public/js/config.js`:
 | `stripDpi` | `300` | Resolution of the strip (2x6" or 4x6") |
 | `photoCaption` | `false` | Stamp "Namen · Datum" bottom-right on every saved photo |
 | `preferredCamera` | `''` | Part of the camera label (e.g. `Logitech`) or a deviceId; `Camera.listCameras()` in the browser console lists them |
+| `dslr` | `'auto'` | Real camera through the Lumix Bridge (server started with `--dslr`): `'auto'` uses it when the server reports it connected, `true` requires it, `false` = webcam only. See "DSLR" below |
+| `dslrTimeoutMs` | `8000` | How long to wait for the camera to deliver a picture before the preview frame is used instead |
+| `dslrCountdownSeconds` | `5` | Countdown between pictures with the real camera; the transfer of the previous picture runs during it |
+| `dslrHidePreview` | `true` | Hide the live view while a picture is transferred; the pictures appear on the review screen only |
 | `previewFit` | `'auto'` | `'auto'` letterboxes when camera and screen orientation differ, `'cover'` always fills, `'contain'` always letterboxes |
 | `sound` | `true` | Countdown beeps and shutter click |
 | `idleTimeoutMs` | `90000` | Return to start screen after inactivity |
@@ -93,7 +97,43 @@ Every key can be overridden per session with URL parameters, e.g.
 
 Server options via environment variables: `PORT` (3000), `HOST` (0.0.0.0),
 `CAPTURE_DIR` (`./captures`), `SSL_KEY`/`SSL_CERT` (HTTPS), `FFMPEG_PATH`,
-`POSTPROCESS` (`0` disables ffmpeg), `MAX_UPLOAD_MB` (512).
+`POSTPROCESS` (`0` disables ffmpeg), `MAX_UPLOAD_MB` (512), `DSLR_URL` (Lumix
+Bridge, e.g. `http://localhost:9002`), `DSLR_BRIDGE_EXE` (bridge executable to
+start automatically, `0` = never).
+
+## DSLR: Panasonic LUMIX with flash (GH5)
+
+Photos can be taken with a real camera instead of the webcam frame, so a flash
+fires and the full-size JPEG from the camera is saved. This uses the ByteHive
+**Lumix Bridge** (`LumixWsBridge.exe`, built on Panasonic's LUMIX SDK, from the
+*ControllBee for Lumix* project), which talks to the camera over USB on Windows
+without any driver changes.
+
+Setup:
+
+1. Camera: USB mode **PC(Tether)**, firmware 2.3 or newer, photo mode (M, e.g.
+   1/160 s, f/4–5.6, ISO 200–400, flash on), **JPEG only** (RAW+JPEG works but
+   is slower), focus fixed on the spot where the guests stand or AFS.
+2. Live preview: the camera's **HDMI** output into a UVC capture card (e.g.
+   Cam Link 4K). Set `preferredCamera: 'Cam Link'` so the booth shows the
+   camera's view; the video mode records this feed as before.
+3. Install the Lumix Bridge (`LumixBridge-Setup.exe`, or copy the
+   `LumixBridge` folder next to the FotoBee executable) and start FotoBee with
+   `--dslr` (or `DSLR_URL=http://localhost:9002`). The server starts the bridge
+   when it is not running, connects the camera over USB, and prints
+   `DSLR: DC-GH5 connected`.
+
+Every picture of a photo session then goes: countdown → `POST /api/camera/shoot`
+→ bridge releases the shutter → the camera delivers the file (about 1.5 s on a
+GH5, 20 MP JPEG) while the next countdown (`dslrCountdownSeconds`, 5 s) already
+runs with the live view hidden → after the last picture a short "die Fotos
+kommen…" message → review screen and print strip as usual. There is no freeze
+frame per picture with the real camera; the guests see all pictures on the
+review screen. If the camera does
+not answer, the booth falls back to the preview frame for that picture (unless
+`dslr: true` requires the camera). Status: `GET /api/camera`, health shows
+`dslr: true`. The bridge's own page at `http://localhost:9002` has live view,
+ISO/aperture/shutter controls and a **Capture (Shutter)** test button.
 
 ## Galerie & Diashow (for the hosts)
 

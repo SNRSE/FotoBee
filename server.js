@@ -23,6 +23,8 @@
  *  --kiosk          open Chrome/Edge in kiosk mode (fullscreen, camera pre-approved)
  *  --port N         listen on port N (same as PORT)
  *  --captures DIR   store photos and videos in DIR (same as CAPTURE_DIR)
+ *  --dslr [URL]     take the photos with a Panasonic camera through the Lumix
+ *                   Bridge (default URL http://localhost:9002, same as DSLR_URL)
  *
  * Environment:
  *  FOTOBEE_OPEN   "1" = like --open, "kiosk" = like --kiosk
@@ -34,6 +36,10 @@
  *  FFMPEG_PATH    ffmpeg binary (default: "ffmpeg" on PATH)
  *  POSTPROCESS    "0" disables the ffmpeg post-processing of videos
  *  MAX_UPLOAD_MB  upload size limit in MB (default 512)
+ *  DSLR_URL       Lumix Bridge base URL (e.g. http://localhost:9002); unset = webcam only
+ *  DSLR_BRIDGE_EXE bridge executable to start when the bridge is not running
+ *                 (default: LumixBridge\LumixWsBridge.exe next to the app or in
+ *                 Program Files; "0" = never start it)
  */
 'use strict';
 
@@ -63,6 +69,10 @@ const OPEN_MODE = ARGS.kiosk
         ? 'open'
         : null;
 const MAX_BODY_BYTES = (Number(process.env.MAX_UPLOAD_MB) || 512) * 1024 * 1024; // plenty for a 15 s video
+const DSLR_URL = dslrUrl(ARGS.dslr || process.env.DSLR_URL || ''); // Lumix Bridge base URL, '' = no DSLR
+const DSLR_BRIDGE_EXE = process.env.DSLR_BRIDGE_EXE === '0' ? null : process.env.DSLR_BRIDGE_EXE || findDslrBridgeExe();
+const DSLR_DEFAULT_TIMEOUT_MS = 8000; // how long the bridge waits for the camera to deliver the picture
+const DSLR_BRIDGE_START_MS = 8000; // how long to wait for a bridge we started ourselves
 const POSTPROCESS_ENABLED = process.env.POSTPROCESS !== '0';
 const FFMPEG_CANDIDATE = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFMPEG_TIMEOUT_MS = 120000;
@@ -141,15 +151,16 @@ function usage() {
     '  --kiosk          open Chrome/Edge in kiosk mode (fullscreen, camera pre-approved)',
     '  --port N         listen on port N (default 3000, 0 = random free port)',
     '  --captures DIR   store photos and videos in DIR (default ./captures)',
+    '  --dslr [URL]     photos with a Panasonic camera via the Lumix Bridge (default http://localhost:9002)',
     '  --help           show this help',
     '',
     'Environment: PORT, HOST, CAPTURE_DIR, FOTOBEE_OPEN (1|kiosk), SSL_KEY, SSL_CERT,',
-    '             FFMPEG_PATH, POSTPROCESS (0 = off), MAX_UPLOAD_MB',
+    '             FFMPEG_PATH, POSTPROCESS (0 = off), MAX_UPLOAD_MB, DSLR_URL, DSLR_BRIDGE_EXE',
   ].join('\n');
 }
 
 function parseArgs(argv) {
-  const out = { open: false, kiosk: false, port: null, captures: null, help: false };
+  const out = { open: false, kiosk: false, port: null, captures: null, dslr: null, help: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const [flag, inlineValue] = arg.includes('=') ? arg.split(/=(.*)/s) : [arg, undefined];
@@ -159,7 +170,12 @@ function parseArgs(argv) {
     else if (flag === '--help' || flag === '-h') out.help = true;
     else if (flag === '--port') out.port = Number(value());
     else if (flag === '--captures') out.captures = value();
-    else console.warn(`Ignoring unknown option ${arg} (try --help)`);
+    else if (flag === '--dslr') {
+      // the URL is optional: "--dslr" alone means the bridge on this machine
+      if (inlineValue !== undefined) out.dslr = inlineValue;
+      else if (argv[i + 1] && /^https?:\/\//i.test(argv[i + 1])) out.dslr = argv[(i += 1)];
+      else out.dslr = 'http://localhost:9002';
+    } else console.warn(`Ignoring unknown option ${arg} (try --help)`);
   }
   if (out.port != null && (!Number.isInteger(out.port) || out.port < 0 || out.port > 65535)) {
     console.error('--port expects a number between 0 and 65535');
@@ -607,6 +623,213 @@ function openBrowser(mode, url) {
 }
 
 /* ------------------------------------------------------------------ */
+/* DSLR: Panasonic LUMIX through the Lumix Bridge (real shutter release) */
+/* ------------------------------------------------------------------ */
+
+let dslrProcess = null; // the bridge process when this server started it
+let dslrBridgeStartedAt = 0; // last automatic bridge start (rate limit for restarts during the event)
+
+/** Normalise DSLR_URL / --dslr: '', '0', 'false' = off; '1', 'true' = the local bridge; otherwise a base URL. */
+function dslrUrl(value) {
+  const v = String(value || '').trim();
+  if (!v || v === '0' || v.toLowerCase() === 'false') return '';
+  if (v === '1' || v.toLowerCase() === 'true') return 'http://localhost:9002';
+  return v.replace(/\/+$/, '');
+}
+
+/** The Lumix Bridge executable in the usual places (next to the app, then Program Files). */
+function findDslrBridgeExe() {
+  if (process.platform !== 'win32') return null;
+  const candidates = [
+    path.join(APP_DIR, 'LumixBridge', 'LumixWsBridge.exe'),
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'LumixBridge', 'LumixWsBridge.exe'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
+function isLocalUrl(url) {
+  try {
+    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(new URL(url).hostname);
+  } catch (err) {
+    return false;
+  }
+}
+
+/** One request against the bridge; resolves { status, headers, body } with the body as a Buffer. */
+function bridgeRequest(method, urlPath, options = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlPath, `${DSLR_URL}/`);
+    const headers = {};
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(options.body);
+    }
+    const req = (url.protocol === 'https:' ? https : http).request(url, { method, headers, agent: false }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on('error', reject);
+    });
+    req.setTimeout(options.timeout || 5000, () => req.destroy(Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })));
+    req.on('error', reject);
+    req.end(options.body);
+  });
+}
+
+/** Send a bridge JSON command (same commands as its WebSocket) and return the parsed reply. */
+async function bridgeCommand(command, timeout) {
+  const res = await bridgeRequest('POST', '/command', { body: JSON.stringify(command), timeout });
+  try {
+    return JSON.parse(res.body.toString('utf8'));
+  } catch (err) {
+    throw new Error(`bridge answered ${res.status} without JSON`);
+  }
+}
+
+/**
+ * State of the camera behind the bridge. With `connect` (default) a camera that is
+ * plugged in but not connected yet is connected over USB first, so the booth only
+ * needs the bridge running. Resolves { ok, available, connected, camera, connection, error? }.
+ */
+async function dslrStatus(options = {}) {
+  const connect = options.connect !== false;
+  if (!DSLR_URL) return { ok: false, available: false, connected: false, error: 'No DSLR configured' };
+  try {
+    let status;
+    try {
+      status = await bridgeCommand({ command: 'status' });
+    } catch (err) {
+      // Bridge gone during the event (closed, crashed)? Start it again, at most every 30 s.
+      if (!options.noRestart && Date.now() - dslrBridgeStartedAt > 30000 && (await startDslrBridge())) {
+        return dslrStatus({ ...options, noRestart: true });
+      }
+      throw err;
+    }
+    if (status.state !== 'connected' && connect) {
+      const found = await bridgeCommand({ command: 'discover', connection: 'usb' }, 15000);
+      const cameras = (found.ok && found.cameras) || [];
+      if (!cameras.length) return { ok: false, available: true, connected: false, error: 'No camera found on USB (switched off, asleep or unplugged?)' };
+      const conn = await bridgeCommand({ command: 'connect', connection: 'usb', index: cameras[0].index }, 20000);
+      if (!conn.ok) return { ok: false, available: true, connected: false, error: conn.message || 'Connecting the camera failed' };
+      status = await bridgeCommand({ command: 'status' });
+    }
+    const connected = status.state === 'connected';
+    return { ok: connected, available: true, connected, camera: status.camera || '', connection: status.connection || 'none' };
+  } catch (err) {
+    return { ok: false, available: false, connected: false, error: `Camera bridge unreachable (${err.code || err.message})` };
+  }
+}
+
+/**
+ * Drop the bridge's camera session and connect again. Needed when the camera went to sleep or
+ * was unplugged: the bridge still reports "connected" but every camera call fails.
+ */
+async function dslrReconnect() {
+  try {
+    await bridgeCommand({ command: 'disconnect' }, 10000);
+  } catch (err) {
+    /* the status check below reports an unreachable bridge */
+  }
+  return dslrStatus();
+}
+
+/** POST /api/camera/shoot[?timeout=ms]: release the shutter through the bridge and return the JPEG. */
+async function handleDslrShoot(req, res) {
+  if (!DSLR_URL) {
+    sendJson(res, 503, { ok: false, error: 'No DSLR configured (start with --dslr or DSLR_URL)' });
+    return;
+  }
+  const status = await dslrStatus();
+  if (!status.connected) {
+    sendJson(res, 503, { ok: false, ...status });
+    return;
+  }
+  const requested = Number(new URL(req.url, 'http://localhost').searchParams.get('timeout')) || DSLR_DEFAULT_TIMEOUT_MS;
+  const timeout = Math.min(Math.max(Math.round(requested), 1000), 60000);
+  const started = Date.now();
+  const shootOnce = () => bridgeRequest('GET', `/shoot.jpg?timeout=${timeout}`, { timeout: timeout + 10000 });
+  let shot;
+  try {
+    shot = await shootOnce();
+    if (shot.status === 409) {
+      // The bridge refused the release (stale session after camera sleep / re-plug): reconnect, retry once.
+      console.log(`[dslr] release refused (${shot.body.toString('utf8').slice(0, 120)}) – reconnecting the camera`);
+      const again = await dslrReconnect();
+      if (!again.connected) {
+        sendJson(res, 503, { ok: false, ...again });
+        return;
+      }
+      shot = await shootOnce();
+    }
+  } catch (err) {
+    sendJson(res, 502, { ok: false, error: `Camera bridge: ${err.code || err.message}` });
+    return;
+  }
+  if (shot.status !== 200) {
+    const message = shot.body.toString('utf8').slice(0, 300) || `bridge status ${shot.status}`;
+    console.log(`[dslr] shot failed: ${message}`);
+    sendJson(res, shot.status === 504 ? 504 : 502, { ok: false, error: message });
+    return;
+  }
+  const headers = { 'Content-Type': 'image/jpeg', 'Content-Length': shot.body.length, 'Cache-Control': 'no-store' };
+  for (const name of ['x-lumix-file', 'x-lumix-wait-ms', 'x-lumix-download-ms']) {
+    if (shot.headers[name]) headers[name] = shot.headers[name];
+  }
+  res.writeHead(200, headers);
+  res.end(shot.body);
+  console.log(`[dslr] shot ${shot.headers['x-lumix-file'] || ''} (${(shot.body.length / 1024).toFixed(0)} kB, ${Date.now() - started} ms)`);
+}
+
+/** Start the bridge executable when the bridge is not reachable; resolves once it answers (or gives up). */
+async function startDslrBridge() {
+  if (!DSLR_BRIDGE_EXE || !isLocalUrl(DSLR_URL)) return false;
+  let port = 9002;
+  try {
+    port = Number(new URL(DSLR_URL).port) || 9002;
+  } catch (err) {
+    return false;
+  }
+  dslrBridgeStartedAt = Date.now();
+  try {
+    dslrProcess = spawn(DSLR_BRIDGE_EXE, [String(port)], { cwd: path.dirname(DSLR_BRIDGE_EXE), stdio: 'ignore', windowsHide: true });
+  } catch (err) {
+    console.log(`DSLR: cannot start the bridge ${DSLR_BRIDGE_EXE} (${err.message})`);
+    return false;
+  }
+  dslrProcess.on('error', (err) => console.log(`DSLR: bridge failed to start (${err.message})`));
+  dslrProcess.on('exit', (code) => {
+    if (!shuttingDown) console.log(`DSLR: bridge exited (code ${code})`);
+    dslrProcess = null;
+  });
+  console.log(`DSLR: started the bridge ${DSLR_BRIDGE_EXE} on port ${port}`);
+  const deadline = Date.now() + DSLR_BRIDGE_START_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if ((await dslrStatus({ connect: false, noRestart: true })).available) return true;
+  }
+  return false;
+}
+
+/** Called after the server listens: make sure the bridge runs and the camera is connected, and say so. */
+async function startDslr() {
+  if (!DSLR_URL) return;
+  let status = await dslrStatus({ connect: false });
+  if (!status.available) await startDslrBridge();
+  status = await dslrStatus();
+  if (status.connected) console.log(`DSLR: ${status.camera} connected via ${DSLR_URL} – photos use the real shutter`);
+  else console.log(`DSLR: not available (${status.error}) – the booth uses the webcam picture until the camera is there`);
+}
+
+function stopDslrBridge() {
+  if (!dslrProcess) return;
+  try {
+    dslrProcess.kill();
+  } catch (err) {
+    /* already gone */
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Request routing                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -618,6 +841,7 @@ function healthPayload() {
     ffmpeg: Boolean(ffmpeg),
     postprocess: Boolean(ffmpeg) && POSTPROCESS_ENABLED,
     portable: Boolean(sea),
+    dslr: Boolean(DSLR_URL),
     version: PKG.version,
     time: new Date().toISOString(),
   };
@@ -649,6 +873,14 @@ async function handleRequest(req, res) {
     }
     if (req.method === 'GET' && pathname === '/api/gallery') {
       sendJson(res, 200, { ok: true, ...(await listGallery()) });
+      return;
+    }
+    if (req.method === 'GET' && pathname === '/api/camera') {
+      sendJson(res, 200, await dslrStatus());
+      return;
+    }
+    if ((req.method === 'POST' || req.method === 'GET') && pathname === '/api/camera/shoot') {
+      await handleDslrShoot(req, res);
       return;
     }
     if (pathname.startsWith('/api/')) {
@@ -754,6 +986,7 @@ function shutdown(signal) {
   if (shuttingDown) process.exit(0); // second Ctrl+C: leave immediately
   shuttingDown = true;
   console.log(`\n[${signal}] shutting down…`);
+  stopDslrBridge();
   setTimeout(() => {
     console.log('[shutdown] still busy – forcing exit');
     process.exit(0);
@@ -791,7 +1024,10 @@ async function main() {
     fail(`Invalid SSL_KEY/SSL_CERT: ${err.message}`);
   }
   server.on('error', onServerError);
-  server.listen(PORT, HOST, logStartup);
+  server.listen(PORT, HOST, () => {
+    logStartup();
+    startDslr().catch((err) => console.log(`DSLR: ${err.message}`));
+  });
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }

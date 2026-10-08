@@ -36,6 +36,12 @@ window.FOTOBOX_CONFIG = {
   idleTimeoutMs: 90000,      // return to start screen after inactivity (0 = never)
   thanksDurationMs: 2200,    // "Saved! Thank you" overlay duration
 
+  // DSLR: real camera (Panasonic LUMIX via the Lumix Bridge, server started with --dslr), see README
+  dslr: 'auto',              // 'auto' = use it when the server reports it connected, true = required, false = webcam only
+  dslrTimeoutMs: 8000,       // how long to wait for the camera to deliver the picture before using the preview frame
+  dslrCountdownSeconds: 5,   // countdown between pictures with the real camera (long enough to cover the transfer)
+  dslrHidePreview: true,     // hide the live view while a picture is transferred; pictures are shown on the review screen only
+
   // Camera
   preferredCamera: '',       // part of the camera label (case-insensitive, e.g. 'Logitech') or a deviceId; '' = default
   previewFit: 'auto',        // 'auto' | 'cover' | 'contain' – 'auto' letterboxes when camera and screen orientation differ
