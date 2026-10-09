@@ -87,7 +87,7 @@ Edit `public/js/config.js`:
 | `dslr` | `'auto'` | Real camera through the Lumix Bridge (server started with `--dslr`): `'auto'` uses it when the server reports it connected, `true` requires it, `false` = webcam only. See "DSLR" below |
 | `dslrTimeoutMs` | `8000` | How long to wait for the camera to deliver a picture before the preview frame is used instead |
 | `dslrCountdownSeconds` | `5` | Countdown between pictures with the real camera; the transfer of the previous picture runs during it |
-| `dslrHidePreview` | `true` | Hide the live view while a picture is transferred; the pictures appear on the review screen only |
+| `dslrHidePreview` | `false` | `true` hides the live view while a picture is transferred; by default the live view stays on between pictures |
 | `previewFit` | `'auto'` | `'auto'` letterboxes when camera and screen orientation differ, `'cover'` always fills, `'contain'` always letterboxes |
 | `sound` | `true` | Countdown beeps and shutter click |
 | `idleTimeoutMs` | `90000` | Return to start screen after inactivity |
